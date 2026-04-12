@@ -1,0 +1,13 @@
+name: json5_plus
+description: A JSON5 parser with type-safe accessors.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: '>=3.11.1 <4.0.0'
+
+dependencies:
+
+dev_dependencies:
+  lints:
+  test:
