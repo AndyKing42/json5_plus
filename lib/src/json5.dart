@@ -1,10 +1,11 @@
 import 'dart:collection';
+
 import 'package:meta/meta.dart';
 
 import 'json5_accessor.dart';
-import 'json5_options.dart';
 import 'json5_extensions.dart';
 import 'json5_io_stub.dart' if (dart.library.io) 'json5_io_native.dart' as io;
+import 'json5_options.dart';
 import 'json5_parser.dart';
 import 'json5_util.dart';
 
