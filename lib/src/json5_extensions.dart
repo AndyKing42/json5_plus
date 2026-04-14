@@ -30,8 +30,25 @@ extension Json5StringExtension on String? {
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
   ///
-  int compareToIgnoreCase(String? other) =>
-      (this == null ? "" : this!.toLowerCase()).compareTo(other == null ? "" : other.toLowerCase());
+  int compareToIgnoreCase(String? other) {
+    final int len = this?.length ?? 0;
+    final int otherLen = other?.length ?? 0;
+    final int minLen = len < otherLen ? len : otherLen;
+    for (int i = 0; i < minLen; ++i) {
+      int a = this!.codeUnitAt(i);
+      int b = other!.codeUnitAt(i);
+      if (a != b) {
+        // If either character is non-ASCII (Unicode), fallback to toLowerCase
+        if (a > 127 || b > 127) {
+          return this!.toLowerCase().compareTo(other.toLowerCase());
+        }
+        if (a >= 97 && a <= 122) a -= 32; // a-z -> A-Z
+        if (b >= 97 && b <= 122) b -= 32; // a-z -> A-Z
+        if (a != b) return a - b;
+      }
+    }
+    return len - otherLen;
+  }
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!

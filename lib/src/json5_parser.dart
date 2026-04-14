@@ -1,47 +1,118 @@
-part of '../json5_plus.dart';
+import 'package:meta/meta.dart';
 
-class _Json5Parser {
+import 'json5.dart';
+
+// TODO(andy): document this!
+///
+class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   final int _len;
   int _lineNumber;
-  int _pos;
-  final String _source;
+  // TODO(andy): document this!
+  ///
+  ///@internal
+  int pos;
+  // TODO(andy): document this!
+  ///
+  final String jsonString;
+  final bool _useJson5;
 
   //--------------------------------------------------------------------------------------------------
-  _Json5Parser(this._source) : _len = _source.length, _lineNumber = 1, _pos = 0;
+  // TODO(andy): document this!
+  ///
+  @internal
+  static Json5Parser createJson5Instance(String jsonString) =>
+      Json5Parser._(jsonString: jsonString, useJson5: true);
+
+  //--------------------------------------------------------------------------------------------------
+  /// Decodes a JSON5 string into standard Dart types.
+  ///
+  /// Returns a [Map<String, dynamic>] for JSON objects, a [List] for arrays,
+  /// or a primitive value (String, num, bool, null).
+  ///
+  /// To get a wrapped [Json5] object with case-insensitive support,
+  /// use the [Json5] constructor instead.
+  static dynamic decode(String jsonString) =>
+      Json5Parser._(jsonString: jsonString, useJson5: false)._parseValue();
+
+  //--------------------------------------------------------------------------------------------------
+  // TODO(andy): document this!
+  ///
+  @internal
+  static void decodeInternal({required Json5 json5, required String jsonString}) =>
+      Json5Parser._(jsonString: jsonString, useJson5: true).parseInto(json5);
+
+  //--------------------------------------------------------------------------------------------------
+  Json5Parser._({required this.jsonString, required bool useJson5})
+    : _len = jsonString.length,
+      _lineNumber = 1,
+      pos = 0,
+      _useJson5 = useJson5;
 
   //--------------------------------------------------------------------------------------------------
   Never _error(String message) {
-    throw FormatException('$message at line $_lineNumber, pos $_pos');
+    throw FormatException('$message at line $_lineNumber, pos $pos');
   }
+
+  //--------------------------------------------------------------------------------------------------
+  void _fillObject({Json5? json5, Map<String, dynamic>? map}) {
+    final Map<String, dynamic> targetMap = json5?.keyToValueMap ?? map!;
+    ++pos; // skip '{'
+    while (pos < _len) {
+      skipWhitespace();
+      if (pos >= _len) break;
+      if (jsonString.codeUnitAt(pos) == 125) /* '}' */ {
+        ++pos;
+        break;
+      }
+      final String key = _parseKey();
+      skipWhitespace();
+      if (pos < _len && jsonString.codeUnitAt(pos) == 58) /* ':' */ {
+        ++pos;
+      }
+      targetMap[key] = _parseValue();
+      skipWhitespace();
+      if (pos < _len && jsonString.codeUnitAt(pos) == 44) /* ',' */ {
+        ++pos;
+      }
+    }
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  // TODO(andy): document this!
+  ///
+  @internal
+  bool get atEnd => pos >= _len;
 
   //--------------------------------------------------------------------------------------------------
   List<dynamic> _parseArray() {
     final List<dynamic> list = [];
-    ++_pos; // skip '['
-    while (_pos < _len) {
-      _skipWhitespace();
-      if (_pos >= _len) break;
-      if (_source.codeUnitAt(_pos) == 93) {
+    ++pos; // skip '['
+    while (pos < _len) {
+      skipWhitespace();
+      if (pos >= _len) break;
+      if (jsonString.codeUnitAt(pos) == 93) {
         // ']'
-        ++_pos;
+        ++pos;
         break;
       }
       list.add(_parseValue());
-      _skipWhitespace();
-      if (_pos < _len && _source.codeUnitAt(_pos) == 44) {
+      skipWhitespace();
+      if (pos < _len && jsonString.codeUnitAt(pos) == 44) {
         // ','
-        ++_pos;
+        ++pos;
       }
     }
     return list;
   }
 
   //--------------------------------------------------------------------------------------------------
-  void parseInto(Json5 target) {
-    _skipWhitespace();
-    if (_pos < _len && _source.codeUnitAt(_pos) == 123) {
-      _fillObject(target);
+  // TODO(andy): document this!
+  ///
+  void parseInto(Json5 json) {
+    skipWhitespace();
+    if (pos < _len && jsonString.codeUnitAt(pos) == 123) {
+      _fillObject(json5: json);
     } else {
       _error('Source does not start with a JSON5 object');
     }
@@ -49,94 +120,77 @@ class _Json5Parser {
 
   //--------------------------------------------------------------------------------------------------
   String _parseKey() {
-    int codeUnit = _source.codeUnitAt(_pos);
+    int codeUnit = jsonString.codeUnitAt(pos);
     if (codeUnit == 34 || codeUnit == 39) return _parseString(codeUnit);
-    final int start = _pos;
-    while (_pos < _len) {
-      codeUnit = _source.codeUnitAt(_pos);
+    final int start = pos;
+    while (pos < _len) {
+      codeUnit = jsonString.codeUnitAt(pos);
       // Stop at colon, space, or end of object
       if (codeUnit == 58 || codeUnit <= 32 || codeUnit == 44 || codeUnit == 125) break;
-      ++_pos;
+      ++pos;
     }
-    return _source.substring(start, _pos);
+    return jsonString.substring(start, pos);
   }
 
   //--------------------------------------------------------------------------------------------------
   dynamic _parseObject() {
-    final Json5 json = Json5();
-    _fillObject(json);
-    return json;
-  }
-
-  //--------------------------------------------------------------------------------------------------
-  void _fillObject(Json5 target) {
-    ++_pos; // skip '{'
-    while (_pos < _len) {
-      _skipWhitespace();
-      if (_pos >= _len) break;
-      if (_source.codeUnitAt(_pos) == 125) {
-        // '}'
-        ++_pos;
-        break;
-      }
-      final String key = _parseKey();
-      _skipWhitespace();
-      if (_pos < _len && _source.codeUnitAt(_pos) == 58) {
-        // ':'
-        ++_pos;
-      }
-      // Set directly into the target map
-      target._keyToValueMap[key] = _parseValue();
-      _skipWhitespace();
-      if (_pos < _len && _source.codeUnitAt(_pos) == 44) {
-        // ','
-        ++_pos;
-      }
+    if (_useJson5) {
+      final Json5 json = Json5();
+      _fillObject(json5: json);
+      return json;
     }
+    final Map<String, dynamic> map = {};
+    _fillObject(map: map);
+    return map;
   }
 
   //--------------------------------------------------------------------------------------------------
   dynamic _parsePrimitive() {
-    final int start = _pos;
-    while (_pos < _len) {
-      final int codeUnit = _source.codeUnitAt(_pos);
+    final int start = pos;
+    while (pos < _len) {
+      final int codeUnit = jsonString.codeUnitAt(pos);
       if (codeUnit == 44 || codeUnit == 125 || codeUnit == 93 || codeUnit <= 32 || codeUnit == 58) {
         break;
       }
-      ++_pos;
+      ++pos;
     }
-    final String val = _source.substring(start, _pos);
-    if (val == "true") return true;
-    if (val == "false") return false;
-    if (val == "null") return null;
-    if (val.startsWith("0x")) {
-      return int.parse(val.substring(2), radix: 16);
+    final String val = jsonString.substring(start, pos);
+    switch (val) {
+      case "true":
+        return true;
+      case "false":
+        return false;
+      case "null":
+        return null;
+      default:
+        return val.startsWith("0x")
+            ? int.parse(val.substring(2), radix: 16)
+            : num.tryParse(val) ?? val;
     }
-    return num.tryParse(val) ?? val;
   }
 
   //--------------------------------------------------------------------------------------------------
   String _parseString(int quote) {
-    ++_pos; // skip opening quote
-    final int start = _pos;
-    while (_pos < _len) {
-      final int codeUnit = _source.codeUnitAt(_pos);
+    ++pos;
+    final int start = pos;
+    while (pos < _len) {
+      final int codeUnit = jsonString.codeUnitAt(pos);
       if (codeUnit == quote) {
-        final String res = _source.substring(start, _pos);
-        ++_pos;
+        final String res = jsonString.substring(start, pos);
+        ++pos;
         return res;
       }
-      if (codeUnit == 92) ++_pos; // skip escape char
-      ++_pos;
+      if (codeUnit == 92) ++pos; // skip escape char
+      ++pos;
     }
     return "";
   }
 
   //--------------------------------------------------------------------------------------------------
   dynamic _parseValue() {
-    _skipWhitespace();
-    if (_pos >= _len) return null;
-    final int codeUnit = _source.codeUnitAt(_pos);
+    skipWhitespace();
+    if (pos >= _len) return null;
+    final int codeUnit = jsonString.codeUnitAt(pos);
     switch (codeUnit) {
       case 123: // '{'
         return _parseObject();
@@ -159,39 +213,39 @@ class _Json5Parser {
   }
 
   //--------------------------------------------------------------------------------------------------
-  void _skipWhitespace() {
-    if (_pos >= _len) return;
-    int codeUnit = _source.codeUnitAt(_pos);
+  // TODO(andy): document this!
+  ///
+  @internal
+  void skipWhitespace() {
+    if (pos >= _len) return;
+    int codeUnit = jsonString.codeUnitAt(pos);
     if (codeUnit > 32 && codeUnit != 47) return;
-    while (_pos < _len) {
-      codeUnit = _source.codeUnitAt(_pos);
+    while (pos < _len) {
+      codeUnit = jsonString.codeUnitAt(pos);
+      if (codeUnit > 32 && codeUnit != 47) return;
       if (codeUnit <= 32) {
         if (codeUnit == 10) ++_lineNumber;
-        ++_pos;
-      } else if (codeUnit == 47 && _pos + 1 < _len) {
-        // '/'
-        final int next = _source.codeUnitAt(_pos + 1);
-        if (next == 47) {
-          // '//'
-          while (_pos < _len && _source.codeUnitAt(_pos) != 10) {
-            ++_pos;
+        ++pos;
+      } else if (codeUnit == 47 && pos + 1 < _len) /* '/' */ {
+        final int next = jsonString.codeUnitAt(pos + 1);
+        if (next == 47) /* '/' + '/' */ {
+          while (pos < _len && jsonString.codeUnitAt(pos) != 10) {
+            ++pos;
           }
-        } else if (next == 42) {
-          // '/*'
-          _pos += 2;
-          while (_pos < _len - 1) {
-            if (_source.codeUnitAt(_pos) == 42 && _source.codeUnitAt(_pos + 1) == 47) {
-              _pos += 2;
+        } else if (next == 42) /* '/' + '*' */ {
+          pos += 2;
+          while (pos < _len - 1) {
+            if (jsonString.codeUnitAt(pos) == 42 &&
+                jsonString.codeUnitAt(pos + 1) == 47) /* '*' + '/' */ {
+              pos += 2;
               break;
             }
-            if (_source.codeUnitAt(_pos) == 10) ++_lineNumber;
-            ++_pos;
+            if (jsonString.codeUnitAt(pos) == 10) ++_lineNumber;
+            ++pos;
           }
         } else {
-          break;
+          return;
         }
-      } else {
-        break;
       }
     }
   }
