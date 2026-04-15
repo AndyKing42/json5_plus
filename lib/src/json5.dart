@@ -410,7 +410,8 @@ class Json5 with Json5Accessor {
   bool get isNotEmpty => keyToValueMap.isNotEmpty;
 
   //--------------------------------------------------------------------------------------------------
-  /// Generates a JSON5 representation of the object.
+  /// Generates a JSON5 representation of the object. The result is a single line, with no extra
+  /// spaces, and no comments. For a pretty-printed version, use [toFormattedString].
   String get json5String {
     final buffer = StringBuffer("{");
     bool firstEntry = true;
@@ -423,6 +424,25 @@ class Json5 with Json5Accessor {
       firstEntry = false;
     });
     if (!firstEntry) buffer.write(",");
+    buffer.write("}");
+    return buffer.toString();
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  // TODO(andy): document this!
+  ///
+  String get jsonString {
+    final buffer = StringBuffer("{");
+    bool firstEntry = true;
+    keyToValueMap.forEach((String key, dynamic value) {
+      if (!firstEntry) buffer.write(",");
+      buffer
+        ..write('"')
+        ..write(key)
+        ..write('":')
+        ..write(_valueToString(value, json5: false));
+      firstEntry = false;
+    });
     buffer.write("}");
     return buffer.toString();
   }
@@ -548,7 +568,7 @@ class Json5 with Json5Accessor {
   String toString() => json5String;
 
   //--------------------------------------------------------------------------------------------------
-  String _valueToString(dynamic value) {
+  String _valueToString(dynamic value, {bool json5 = true}) {
     if (value is String) {
       return '"${escapeString(value)}"';
     }
@@ -559,10 +579,10 @@ class Json5 with Json5Accessor {
       return value ? "true" : "false";
     }
     if (value is Json5) {
-      return value.json5String;
+      return json5 ? value.json5String : value.jsonString;
     }
     if (value is List) {
-      return '[${value.map(_valueToString).join(',')}]';
+      return "[${value.map((e) => _valueToString(e, json5: json5)).join(',')}]";
     }
     if (value is Enum) {
       return '"${_getkey(value)}"';
