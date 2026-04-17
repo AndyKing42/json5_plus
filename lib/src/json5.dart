@@ -55,12 +55,13 @@ class Json5 with Json5Accessor {
   static List<dynamic> _copyList(final List<dynamic> other) {
     final List<dynamic> result = [];
     for (final dynamic listItem in other) {
-      if (listItem is List) {
-        result.add(_copyList(listItem));
-      } else if (listItem is Json5) {
-        result.add(Json5(json: listItem));
-      } else {
-        result.add(listItem);
+      switch (listItem) {
+        case List<dynamic> listValue:
+          result.add(_copyList(listValue));
+        case Json5 jsonValue:
+          result.add(Json5(json: jsonValue));
+        default:
+          result.add(listItem);
       }
     }
     return result;
@@ -285,10 +286,11 @@ class Json5 with Json5Accessor {
   //--------------------------------------------------------------------------------------------------
   void _convertList(List<dynamic> list) {
     for (int listIndex = 0; listIndex < list.length; ++listIndex) {
-      if (list[listIndex] is Map) {
-        list[listIndex] = Json5(map: list[listIndex] as Map<dynamic, dynamic>);
-      } else if (list[listIndex] is List) {
-        _convertList(list[listIndex] as List<dynamic>);
+      switch (list[listIndex]) {
+        case Map<dynamic, dynamic> mapValue:
+          list[listIndex] = Json5(map: mapValue);
+        case List<dynamic> listValue:
+          _convertList(listValue);
       }
     }
   }
@@ -296,10 +298,11 @@ class Json5 with Json5Accessor {
   //--------------------------------------------------------------------------------------------------
   void _convertMap() {
     keyToValueMap.forEach((final String key, final dynamic value) {
-      if (value is Map) {
-        keyToValueMap[key] = Json5(map: value);
-      } else if (value is List) {
-        _convertList(value);
+      switch (value) {
+        case Map<dynamic, dynamic> mapValue:
+          keyToValueMap[key] = Json5(map: mapValue);
+        case List<dynamic> listValue:
+          _convertList(listValue);
       }
     });
   }
@@ -342,28 +345,31 @@ class Json5 with Json5Accessor {
     required List<dynamic> list,
   }) {
     if (list.isEmpty) {
-      buffer.write("[]");
+      buffer
+        ..write("  " * level)
+        ..write("[]");
       return;
     }
     buffer.writeln("[");
     final String prefix = "  " * (level + 1);
     for (int i = 0; i < list.length; ++i) {
       dynamic value = list[i];
-      if (value is Json5) {
-        buffer.write(prefix);
-        _formatMap(buffer: buffer, level: level + 1, map: value.keyToValueMap);
-      } else if (value is List) {
-        _formatList(buffer: buffer, level: level + 1, list: value);
-      } else if (value is String) {
-        buffer
-          ..write(prefix)
-          ..write('"')
-          ..write(escapeString(value))
-          ..write('"');
-      } else {
-        buffer
-          ..write(prefix)
-          ..write(value);
+      switch (value) {
+        case Json5 jsonValue:
+          buffer.write(prefix);
+          _formatMap(buffer: buffer, level: level + 1, map: jsonValue.keyToValueMap);
+        case List<dynamic> listValue:
+          _formatList(buffer: buffer, level: level + 1, list: listValue);
+        case String stringValue:
+          buffer
+            ..write(prefix)
+            ..write('"')
+            ..write(escapeString(stringValue))
+            ..write('"');
+        default:
+          buffer
+            ..write(prefix)
+            ..write(value);
       }
       buffer.writeln(",");
     }
@@ -435,8 +441,8 @@ class Json5 with Json5Accessor {
     final buffer = StringBuffer("{");
     bool firstEntry = true;
     keyToValueMap.forEach((String key, dynamic value) {
-      if (!firstEntry) buffer.write(",");
       buffer
+        ..write(firstEntry ? "" : ",")
         ..write('"')
         ..write(key)
         ..write('":')
@@ -472,19 +478,16 @@ class Json5 with Json5Accessor {
   void set(dynamic key, final dynamic value) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     String localKey = _getkey(key);
-    if (value == null) {
-      keyToValueMap.remove(localKey);
-      return;
+    switch (value) {
+      case null:
+        keyToValueMap.remove(localKey);
+      case DateTime dateTimeValue:
+        keyToValueMap[localKey] = dateTimeValue.formatIso8601();
+      case Map<dynamic, dynamic> mapValue:
+        keyToValueMap[localKey] = Json5(map: mapValue);
+      default:
+        keyToValueMap[localKey] = value;
     }
-    if (value is DateTime) {
-      keyToValueMap[localKey] = value.formatIso8601();
-      return;
-    }
-    if (value is Map) {
-      keyToValueMap[localKey] = Json5(map: value);
-      return;
-    }
-    keyToValueMap[localKey] = value;
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -494,15 +497,13 @@ class Json5 with Json5Accessor {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     for (final MapEntry<String, dynamic> newEntry in copyFromJson.keyToValueMap.entries) {
       final dynamic value = newEntry.value;
-
-      if (value is List<dynamic>) {
-        keyToValueMap[newEntry.key] = _copyList(value);
-      } else if (value is Json5) {
-        keyToValueMap[newEntry.key] = Json5(json: value);
-      } else {
-        // Primitives (String, num, bool, null, Enum) are immutable in Dart,
-        // so a direct assignment is perfectly safe for a deep copy.
-        keyToValueMap[newEntry.key] = value;
+      switch (value) {
+        case List<dynamic> listValue:
+          keyToValueMap[newEntry.key] = _copyList(listValue);
+        case Json5 jsonValue:
+          keyToValueMap[newEntry.key] = Json5(json: jsonValue);
+        default:
+          keyToValueMap[newEntry.key] = value;
       }
     }
   }
@@ -568,34 +569,18 @@ class Json5 with Json5Accessor {
   String toString() => json5String;
 
   //--------------------------------------------------------------------------------------------------
-  String _valueToString(dynamic value, {bool json5 = true}) {
-    if (value is String) {
-      return '"${escapeString(value)}"';
-    }
-    if (value is num) {
-      return value.toString();
-    }
-    if (value is bool) {
-      return value ? "true" : "false";
-    }
-    if (value is Json5) {
-      return json5 ? value.json5String : value.jsonString;
-    }
-    if (value is List) {
-      return "[${value.map((e) => _valueToString(e, json5: json5)).join(',')}]";
-    }
-    if (value is Enum) {
-      return '"${_getkey(value)}"';
-    }
-    if (value == null) {
-      return "null";
-    }
-    if (json5Util.isEnum(value)) {
-      String valueString = value.toString();
-      return '"${valueString.substring(valueString.indexOf(".") + 1)}"';
-    }
-    return '"${escapeString(value.toString())}"';
-  }
+  String _valueToString(dynamic value, {bool json5 = true}) => switch (value) {
+    String stringValue => '"${escapeString(stringValue)}"',
+    num numValue => numValue.toString(),
+    bool boolValue => boolValue ? "true" : "false",
+    Json5 jsonValue => json5 ? jsonValue.json5String : jsonValue.jsonString,
+    List<dynamic> listValue =>
+      "[${listValue.map((e) => _valueToString(e, json5: json5)).join(',')}]",
+    Enum enumValue => '"${_getkey(enumValue)}"',
+    null => "null",
+    var v =>
+      json5Util.isEnum(v) ? '"${v.toString().split('.').last}"' : '"${escapeString(v.toString())}"',
+  };
 
   //--------------------------------------------------------------------------------------------------
 }
