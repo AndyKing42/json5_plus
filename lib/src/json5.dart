@@ -14,40 +14,40 @@ import 'json5_util.dart';
 class Json5 with Json5Accessor {
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [List.unmodifiable] as a [=].
   static final List<double> emptyDoubleList = List.unmodifiable([]);
   // TODO(andy): document this!
-  ///
+  /// Gets the [List.unmodifiable] as a [=].
   static final List<dynamic> emptyDynamicList = List.unmodifiable([]);
   // TODO(andy): document this!
-  ///
+  /// Gets the [List.unmodifiable] as a [=].
   static final List<int> emptyIntList = List.unmodifiable([]);
   // TODO(andy): document this!
-  ///
+  /// Gets the [Json5] as a [=].
   static final Json5 emptyJson = Json5(readOnly: true);
   // TODO(andy): document this!
-  ///
+  /// Gets the [List.unmodifiable] as a [=].
   static final List<Json5> emptyJsonList = List.unmodifiable([]);
   // TODO(andy): document this!
-  ///
+  /// Gets the [List.unmodifiable] as a [=].
   static final List<String> emptyStringList = List.unmodifiable([]);
   static const Map<String, String> _escapedCharMap = {
     // search string -> replacement string
-    '\b': r'\b',
-    '\t': r'\t',
-    '\n': r'\n',
-    '\f': r'\f',
-    '\r': r'\r',
+    "\b": r"\b",
+    "\t": r"\t",
+    "\n": r"\n",
+    "\f": r"\f",
+    "\r": r"\r",
     '"': r'\"',
     r'\': r'\\',
   };
 
   // TODO(andy): document this!
-  ///
+  /// Gets the [keyToValueMap;] as a [dynamic>].
   // @internal
   final Map<String, dynamic> keyToValueMap;
   // TODO(andy): document this!
-  ///
+  /// Gets the [readOnly;] as a [bool].
   // @internal
   bool readOnly;
 
@@ -76,7 +76,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [escapeString] as a [String].
   static String escapeString(String originalValue) {
     String result;
     Set<String>? charToEscapeSet;
@@ -135,7 +135,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Represents "Json5".
   Json5({
     bool? caseSensitiveKeys,
     Json5? json,
@@ -177,7 +177,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [addAll] as a [void].
   void addAll(Map<dynamic, dynamic>? map) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     if (map == null || map.isEmpty) {
@@ -189,7 +189,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [asDoubleList] as a [List<double>].
   List<double> asDoubleList(final dynamic key) {
     List<double> result;
     final List<dynamic>? list = keyToValueMap[_getkey(key)] as List<dynamic>?;
@@ -209,7 +209,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [asDynamicList] as a [List<dynamic>].
   List<dynamic> asDynamicList(final dynamic key) {
     final dynamic result = keyToValueMap[_getkey(key)];
     if (result is List<dynamic>) {
@@ -220,7 +220,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [asIntList] as a [List<int>].
   List<int> asIntList(final dynamic key) {
     List<int> result;
     final List<dynamic>? list = keyToValueMap[_getkey(key)] as List<dynamic>?;
@@ -244,7 +244,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [asJsonList] as a [List<Json5>].
   List<Json5> asJsonList(final dynamic key) {
     List<Json5> result;
     final List<dynamic>? list = keyToValueMap[_getkey(key)] as List<dynamic>?;
@@ -262,7 +262,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [asStringList] as a [List<String>].
   List<String> asStringList(final dynamic key) {
     List<String> result;
     final List<dynamic>? list = keyToValueMap[_getkey(key)] as List<dynamic>?;
@@ -402,17 +402,17 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [keyToValueMap.entries;] as a [=>].
   Iterable<MapEntry<String, dynamic>> get entries => keyToValueMap.entries;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [keyToValueMap.isEmpty;] as a [=>].
   bool get isEmpty => keyToValueMap.isEmpty;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [keyToValueMap.isNotEmpty;] as a [=>].
   bool get isNotEmpty => keyToValueMap.isNotEmpty;
 
   //--------------------------------------------------------------------------------------------------
@@ -436,7 +436,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [{] as a [jsonString].
   String get jsonString {
     final buffer = StringBuffer("{");
     bool firstEntry = true;
@@ -464,17 +464,17 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [keyToValueMap.keys;] as a [=>].
   Iterable<String> get keys => keyToValueMap.keys;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [keyToValueMap.length;] as a [=>].
   int get length => keyToValueMap.length;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [set] as a [void].
   void set(dynamic key, final dynamic value) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     String localKey = _getkey(key);
@@ -510,7 +510,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [setFromMap] as a [void].
   void setFromMap(final Map<dynamic, dynamic> copyFromMap) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     for (final MapEntry<dynamic, dynamic> entry in copyFromMap.entries) {
@@ -520,7 +520,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [setFromkeyAndValueLists] as a [void].
   void setFromkeyAndValueLists(List<String>? keyList, List<dynamic>? valueList) {
     if (keyList == null || valueList == null) {
       return;
@@ -535,7 +535,7 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [setFromkeyToIndexAndValueList] as a [void].
   void setFromkeyToIndexAndValueList(Map<String, int>? keyToIndexMap, List<dynamic>? valueList) {
     if (keyToIndexMap == null || valueList == null) {
       return;
@@ -547,13 +547,25 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [setIfChanged] as a [void].
   void setIfChanged(final dynamic key, final Json5 oldJson, final dynamic newValue) {
     String localKey = _getkey(key);
     if (newValue != oldJson.keyToValueMap[localKey]) {
       set(localKey, newValue);
     }
     return;
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  /// Sets the value for [key] only if [value] is not null and not empty (for Strings, Iterables,
+  /// Maps, and Json5 objects).
+  void setIfNotEmpty(dynamic key, final dynamic value) {
+    if (value == null) return;
+    if (value is String && value.isEmpty) return;
+    if (value is Iterable && value.isEmpty) return;
+    if (value is Map && value.isEmpty) return;
+    if (value is Json5 && value.keyToValueMap.isEmpty) return;
+    set(key, value);
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -575,7 +587,7 @@ class Json5 with Json5Accessor {
     bool boolValue => boolValue ? "true" : "false",
     Json5 jsonValue => json5 ? jsonValue.json5String : jsonValue.jsonString,
     List<dynamic> listValue =>
-      "[${listValue.map((e) => _valueToString(e, json5: json5)).join(',')}]",
+      "[${listValue.map((e) => _valueToString(e, json5: json5)).join(",")}]",
     Enum enumValue => '"${_getkey(enumValue)}"',
     null => "null",
     var v =>

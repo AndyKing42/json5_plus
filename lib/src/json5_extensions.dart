@@ -1,22 +1,22 @@
 // TODO(andy): document this!
-///
+/// Extension methods for Json5DateTimeExtension.
 extension Json5DateTimeExtension on DateTime? {
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [formatIso8601] as a [String].
   String formatIso8601() {
     ArgumentError.checkNotNull(this, "DateTime cannot be null");
     return "${this!.year}"
         "-"
-        "${this!.month < 10 ? '0' : ''}${this!.month}"
+        "${this!.month < 10 ? "0" : ""}${this!.month}"
         "-"
-        "${this!.day < 10 ? '0' : ''}${this!.day}"
+        "${this!.day < 10 ? "0" : ""}${this!.day}"
         "T"
-        "${this!.hour < 10 ? '0' : ''}${this!.hour}"
+        "${this!.hour < 10 ? "0" : ""}${this!.hour}"
         ":"
-        "${this!.minute < 10 ? '0' : ''}${this!.minute}"
+        "${this!.minute < 10 ? "0" : ""}${this!.minute}"
         ":"
-        "${this!.second < 10 ? '0' : ''}${this!.second}"
+        "${this!.second < 10 ? "0" : ""}${this!.second}"
         "Z";
   }
 
@@ -25,11 +25,11 @@ extension Json5DateTimeExtension on DateTime? {
 
 //==================================================================================================
 // TODO(andy): document this!
-///
+/// Extension methods for Json5StringExtension.
 extension Json5StringExtension on String? {
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [compareToIgnoreCase] as a [int].
   int compareToIgnoreCase(String? other) {
     final int len = this?.length ?? 0;
     final int otherLen = other?.length ?? 0;
@@ -52,20 +52,20 @@ extension Json5StringExtension on String? {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [this!.trim] as a [||].
   bool get isBlank => this == null || this!.isEmpty || this!.trim().isEmpty;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [!isBlank;] as a [=>].
   bool get isNotBlank => !isBlank;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Invokes toBool operation.
   bool toBool({final bool defaultValue = false}) => isBlank
       ? defaultValue
-      : this![0] == 'y' || this![0] == 'Y' || this!.toLowerCase() == "true" || this! == "1";
+      : this![0] == "y" || this![0] == "Y" || this!.toLowerCase() == "true" || this! == "1";
 
   //--------------------------------------------------------------------------------------------------
   /// Returns a DateTime extracted from a String.
@@ -85,7 +85,7 @@ extension Json5StringExtension on String? {
       return utc ? parsedDateTime.toUtc() : parsedDateTime.toLocal();
     }
     try {
-      String strippedDate = this!.replaceAll(RegExp(r'[-/:\sT.]'), '');
+      String strippedDate = this!.replaceAll(RegExp(r"[-/:\sT.]"), "");
       int length = strippedDate.length;
       int day;
       int hour = 0;
@@ -136,7 +136,7 @@ extension Json5StringExtension on String? {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [toDouble] as a [double].
   double toDouble([final double defaultValue = 0]) {
     try {
       return this == null ? 0 : double.parse(this!);
@@ -147,7 +147,7 @@ extension Json5StringExtension on String? {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  ///
+  /// Gets the [toInt] as a [int].
   int toInt([final int defaultValue = 0]) {
     try {
       return this == null ? 0 : int.parse(this!);
