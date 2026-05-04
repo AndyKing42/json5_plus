@@ -557,15 +557,66 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  /// Sets the value for [key] only if [value] is not null and not empty (for Strings, Iterables,
+  /// Sets the value for [key] only if [newValue] is not null and not empty (for Strings, Iterables,
   /// Maps, and Json5 objects).
-  void setIfNotEmpty(dynamic key, final dynamic value) {
-    if (value == null) return;
-    if (value is String && value.isEmpty) return;
-    if (value is Iterable && value.isEmpty) return;
-    if (value is Map && value.isEmpty) return;
-    if (value is Json5 && value.keyToValueMap.isEmpty) return;
-    set(key, value);
+  void setIfNewValueIsNotEmpty(dynamic key, final dynamic newValue) {
+    if (newValue == null) return;
+    if (newValue is String && newValue.isEmpty) return;
+    if (newValue is Iterable && newValue.isEmpty) return;
+    if (newValue is Map && newValue.isEmpty) return;
+    if (newValue is Json5 && newValue.keyToValueMap.isEmpty) return;
+    set(key, newValue);
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  /// Sets the value for [key] only if [newValue] is not equal to [oldValue].
+  /// For Iterables, equality is determined by having the same elements in the same order.
+  /// For Maps, equality is determined by having the same keys with
+  /// equal values. For Json5 objects, equality is determined by having the same keys with equal
+  /// values.
+  /// For other types, equality is determined by the == operator.
+  void setIfNotEqual(dynamic key, {required dynamic newValue, required dynamic oldValue}) {
+    bool isEqual(dynamic a, dynamic b) {
+      if (identical(a, b)) return true;
+      if (a is Json5 && b is Json5) {
+        if (a.keyToValueMap.length != b.keyToValueMap.length) return false;
+        for (final String k in a.keyToValueMap.keys) {
+          if (!b.keyToValueMap.containsKey(k)) return false;
+          if (!isEqual(a.keyToValueMap[k], b.keyToValueMap[k])) return false;
+        }
+        return true;
+      }
+      if (a is Map<dynamic, dynamic> && b is Map<dynamic, dynamic>) {
+        if (a.length != b.length) return false;
+        for (final Object? k in a.keys) {
+          if (!b.containsKey(k)) return false;
+          if (!isEqual(a[k], b[k])) return false;
+        }
+        return true;
+      }
+      if (a is Iterable<dynamic> && b is Iterable<dynamic>) {
+        if (a.length != b.length) return false;
+        final Iterator<dynamic> itA = a.iterator;
+        final Iterator<dynamic> itB = b.iterator;
+        while (itA.moveNext() && itB.moveNext()) {
+          if (!isEqual(itA.current, itB.current)) return false;
+        }
+        return true;
+      }
+      return a == b;
+    }
+
+    if (!isEqual(oldValue, newValue)) {
+      set(key, newValue);
+    }
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  /// Sets the value for [key] only if [newValue] is not null.
+  void setIfNewValueIsNotNull(dynamic key, final dynamic newValue) {
+    if (newValue != null) {
+      set(key, newValue);
+    }
   }
 
   //--------------------------------------------------------------------------------------------------
