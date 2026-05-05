@@ -59,22 +59,20 @@ class Json5Parser {
   void _fillObject({Json5? json5, Map<String, dynamic>? map}) {
     final Map<String, dynamic> targetMap = json5?.keyToValueMap ?? map!;
     ++pos; // skip "{"
+    skipWhitespace();
     while (pos < _len) {
-      skipWhitespace();
-      if (pos >= _len) break;
       if (jsonString.codeUnitAt(pos) == 125) /* "}" */ {
         ++pos;
         break;
       }
       final String key = _parseKey();
       skipWhitespace();
-      if (pos < _len && jsonString.codeUnitAt(pos) == 58) /* ":" */ {
-        ++pos;
-      }
+      if (pos < _len && jsonString.codeUnitAt(pos) == 58) ++pos; /* ":" */
       targetMap[key] = _parseValue();
       skipWhitespace();
-      if (pos < _len && jsonString.codeUnitAt(pos) == 44) /* "," */ {
+      if (pos < _len && jsonString.codeUnitAt(pos) == 44) {
         ++pos;
+        skipWhitespace();
       }
     }
   }
@@ -89,17 +87,17 @@ class Json5Parser {
   List<dynamic> _parseArray() {
     final List<dynamic> list = [];
     ++pos; // skip "["
+    skipWhitespace();
     while (pos < _len) {
-      skipWhitespace();
-      if (pos >= _len) break;
       if (jsonString.codeUnitAt(pos) == 93) /* "]" */ {
         ++pos;
         break;
       }
       list.add(_parseValue());
       skipWhitespace();
-      if (pos < _len && jsonString.codeUnitAt(pos) == 44) /* "," */ {
+      if (pos < _len && jsonString.codeUnitAt(pos) == 44) {
         ++pos;
+        skipWhitespace();
       }
     }
     return list;
@@ -172,7 +170,23 @@ class Json5Parser {
 
   //--------------------------------------------------------------------------------------------------
   String _parseString(int quote) {
-    ++pos;
+    final int start = ++pos;
+    while (pos < _len) {
+      final int codeUnit = jsonString.codeUnitAt(pos);
+      if (codeUnit == quote) {
+        return jsonString.substring(start, pos++);
+      }
+      if (codeUnit == 92 || codeUnit == 10) {
+        pos = start;
+        return _parseStringWithEscapes(quote);
+      }
+      ++pos;
+    }
+    _error("Unterminated string");
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  String _parseStringWithEscapes(int quote) {
     final StringBuffer buffer = StringBuffer();
     while (pos < _len) {
       final int codeUnit = jsonString.codeUnitAt(pos);
@@ -185,20 +199,24 @@ class Json5Parser {
         if (pos >= _len) break;
         final int nextCodeUnit = jsonString.codeUnitAt(pos);
         switch (nextCodeUnit) {
-          case 98: // "b"
+          case 98:
             buffer.writeCharCode(8); // "\b"
-          case 116: // "t"
+          case 116:
             buffer.writeCharCode(9); // "\t"
-          case 110: // "n"
+          case 110:
             buffer.writeCharCode(10); // "\n"
-          case 102: // "f"
+          case 102:
             buffer.writeCharCode(12); // "\f"
-          case 114: // "r"
+          case 114:
             buffer.writeCharCode(13); // "\r"
+          case 10:
+            ++_lineNumber;
+            buffer.writeCharCode(10); // Escaped newline
           default:
             buffer.writeCharCode(nextCodeUnit);
         }
       } else {
+        if (codeUnit == 10) ++_lineNumber;
         buffer.writeCharCode(codeUnit);
       }
       ++pos;
@@ -218,11 +236,10 @@ class Json5Parser {
         return _parseArray();
       case 34 || 39: // '"' or "'"
         return _parseString(codeUnit);
-      case 43 || 45 || 46 || 48 || 49 || 50 || 51 || 52 || 53 || 54 || 55 || 56 || 57:
-        // Numbers and Signs
+      case 43 || 45 || 46 || (>= 48 && <= 57):
+        // Numbers (+, -, ., 0-9)
         return _parsePrimitive();
-      case 116 || 102 || 110 || 73 || 78:
-        // Primitives: (t)rue, (f)alse, (n)ull, (I)nfinity, (N)aN
+      case 116 || 102 || 110 || 73 || 78: // t, f, n, I, N
         return _parsePrimitive();
       case (>= 65 && <= 90) || (>= 97 && <= 122) || 95 || 36: // A-Z, a-z, _, $
         return _parsePrimitive();
@@ -236,36 +253,41 @@ class Json5Parser {
   //
   // ignore: public_member_api_docs
   void skipWhitespace() {
-    if (pos >= _len) return;
-    int codeUnit = jsonString.codeUnitAt(pos);
-    if (codeUnit > 32 && codeUnit != 47) return;
     while (pos < _len) {
-      codeUnit = jsonString.codeUnitAt(pos);
-      if (codeUnit > 32 && codeUnit != 47) return;
-      if (codeUnit <= 32) {
-        if (codeUnit == 10) ++_lineNumber;
-        ++pos;
-      } else if (codeUnit == 47 && pos + 1 < _len) /* "/" */ {
+      final int codeUnit = jsonString.codeUnitAt(pos);
+      if (codeUnit > 32) {
+        if (codeUnit != 47) {
+          return;
+        }
+        if (pos + 1 >= _len) {
+          return;
+        }
         final int next = jsonString.codeUnitAt(pos + 1);
-        if (next == 47) /* "/" + "/" */ {
+        if (next == 47) /* "//" */ {
+          pos += 2;
           while (pos < _len && jsonString.codeUnitAt(pos) != 10) {
             ++pos;
           }
-        } else if (next == 42) /* "/" + "*" */ {
+          continue;
+        } else if (next == 42) /* start of block comment */ {
           pos += 2;
+          bool closed = false;
           while (pos < _len - 1) {
-            if (jsonString.codeUnitAt(pos) == 42 &&
-                jsonString.codeUnitAt(pos + 1) == 47) /* "*" + "/" */ {
+            if (jsonString.codeUnitAt(pos) == 42 && jsonString.codeUnitAt(pos + 1) == 47) {
               pos += 2;
+              closed = true;
               break;
             }
             if (jsonString.codeUnitAt(pos) == 10) ++_lineNumber;
             ++pos;
           }
-        } else {
-          return;
+          if (!closed) _error("Unterminated block comment");
+          continue;
         }
+        return;
       }
+      if (codeUnit == 10) ++_lineNumber;
+      ++pos;
     }
   }
 
