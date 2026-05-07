@@ -1,11 +1,15 @@
 import 'package:meta/meta.dart';
 
 import 'json5.dart';
+import 'json5_comment_registry.dart';
 
 @internal
 class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   final bool _caseSensitiveKeys;
+  final Json5CommentRegistry _commentRegistry;
+  Object? _currentContainer; // the current Json5 or List object
+  int _currentIndex; // the key index (for a Json5 object) or item index (for a List object)
   final String _jsonString;
   final int _jsonStringLength;
   int _lineNumber;
@@ -39,7 +43,7 @@ class Json5Parser {
       readOnly: readOnly,
     );
     while (true) {
-      parser._skipWhitespace();
+      parser._skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
       if (parser._pos >= parser._jsonStringLength) {
         break;
       }
@@ -61,6 +65,8 @@ class Json5Parser {
     required String jsonString,
     required bool readOnly,
   }) : _caseSensitiveKeys = caseSensitiveKeys,
+       _commentRegistry = Json5CommentRegistry(),
+       _currentIndex = 0,
        _jsonString = jsonString,
        _jsonStringLength = jsonString.length,
        _lineNumber = 1,
@@ -72,30 +78,47 @@ class Json5Parser {
 
   //--------------------------------------------------------------------------------------------------
   Json5 _parse() {
-    _skipWhitespace();
+    Json5 result;
+    _currentContainer = _commentRegistry;
+    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
     if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 123 /* { */ ) {
       _error("Source does not start with a JSON5 object");
     }
-    return _parseObject();
+    result = _parseObject();
+    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneAfter);
+    _commentRegistry.moveContainer(_commentRegistry, result);
+    result.commentRegistry = _commentRegistry;
+    return result;
   }
 
   //--------------------------------------------------------------------------------------------------
   List<dynamic> _parseArray() {
     final List<dynamic> valueList = [];
+    final Object? parentContainer = _currentContainer;
+    final int parentIndex = _currentIndex;
+    _currentContainer = valueList;
+    _currentIndex = 0;
     ++_pos; // skip "["
-    _skipWhitespace();
+    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
     while (_pos < _jsonStringLength) {
       if (_jsonString.codeUnitAt(_pos) == 93) /* "]" */ {
-        ++_pos;
         break;
       }
-      valueList.add(_parseValue());
-      _skipWhitespace();
-      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44) {
+      valueList.add(_parseValue(ECommentLocation.standaloneBefore));
+      _skipWhitespaceAndRegisterComments(ECommentLocation.beforeComma);
+      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44 /* , */ ) {
         ++_pos;
-        _skipWhitespace();
+        _skipWhitespaceAndRegisterComments(ECommentLocation.afterComma);
       }
+      ++_currentIndex;
     }
+    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneAfter);
+    if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 93 /* ] */ ) {
+      _error("Expected ']' at end of array");
+    }
+    ++_pos;
+    _currentContainer = parentContainer;
+    _currentIndex = parentIndex;
     return valueList;
   }
 
@@ -118,25 +141,37 @@ class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   Json5 _parseObject() {
     final Json5 result = Json5(caseSensitiveKeys: _caseSensitiveKeys, readOnly: _readOnly);
+    Object? parentContainer = _currentContainer;
+    int parentIndex = _currentIndex;
+    _currentContainer = result;
+    _currentIndex = 0;
     ++_pos; // skip "{"
-    _skipWhitespace();
+    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
     while (_pos < _jsonStringLength) {
       if (_jsonString.codeUnitAt(_pos) == 125) /* "}" */ {
-        ++_pos;
         break;
       }
       final String key = _parseKey();
-      _skipWhitespace();
-      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 58) {
-        ++_pos; /* ":" */
-      }
-      result.set(key, _parseValue());
-      _skipWhitespace();
-      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44) {
+      _skipWhitespaceAndRegisterComments(ECommentLocation.beforeColon);
+      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 58 /* : */ ) {
         ++_pos;
-        _skipWhitespace();
+        _skipWhitespaceAndRegisterComments(ECommentLocation.afterColon);
       }
+      result.set(key, _parseValue(ECommentLocation.afterColon));
+      _skipWhitespaceAndRegisterComments(ECommentLocation.beforeComma);
+      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44 /* , */ ) {
+        ++_pos;
+        _skipWhitespaceAndRegisterComments(ECommentLocation.afterComma);
+      }
+      ++_currentIndex;
     }
+    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneAfter);
+    if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 125 /* "}" */ ) {
+      _error("Expected '}'");
+    }
+    ++_pos;
+    _currentContainer = parentContainer;
+    _currentIndex = parentIndex;
     return result;
   }
 
@@ -224,8 +259,8 @@ class Json5Parser {
   }
 
   //--------------------------------------------------------------------------------------------------
-  dynamic _parseValue() {
-    _skipWhitespace();
+  dynamic _parseValue(ECommentLocation commentLocation) {
+    _skipWhitespaceAndRegisterComments(commentLocation);
     if (_pos >= _jsonStringLength) return null;
     final int codeUnit = _jsonString.codeUnitAt(_pos);
     switch (codeUnit) {
@@ -248,47 +283,63 @@ class Json5Parser {
   }
 
   //--------------------------------------------------------------------------------------------------
-  void _skipWhitespace() {
+  void _skipWhitespaceAndRegisterComments(ECommentLocation commentLocation) {
+    bool newlineFound = false;
     while (_pos < _jsonStringLength) {
       final int codeUnit = _jsonString.codeUnitAt(_pos);
-      if (codeUnit > 32) {
-        if (codeUnit != 47) /* "/" */ {
-          return;
+      if (codeUnit <= 32) {
+        if (codeUnit == 10) /* \n */ {
+          newlineFound = true;
+          ++_lineNumber;
         }
+        ++_pos;
+      } else if (codeUnit == 47 /* / */ ) {
         if (_pos + 1 >= _jsonStringLength) {
-          return;
+          break;
         }
-        final int next = _jsonString.codeUnitAt(_pos + 1);
-        if (next == 47) /* "//" */ {
+        final int nextCodeUnit = _jsonString.codeUnitAt(_pos + 1);
+        if (nextCodeUnit == 47 /* / */ || nextCodeUnit == 42 /* * */ ) {
+          final bool blockComment = nextCodeUnit == 42;
+          final int startPos = _pos;
           _pos += 2;
-          while (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) != 10) {
-            ++_pos;
-          }
-          continue;
-        } else if (next == 42) /* start of block comment */ {
-          _pos += 2;
-          bool closed = false;
-          while (_pos < _jsonStringLength - 1) {
-            if (_jsonString.codeUnitAt(_pos) == 42 &&
-                _jsonString.codeUnitAt(_pos + 1) == 47) /* end of block comment */ {
-              _pos += 2;
-              closed = true;
-              break;
+          if (blockComment) {
+            bool closed = false;
+            while (_pos < _jsonStringLength - 1) {
+              if (_jsonString.codeUnitAt(_pos) == 42 /* * */ &&
+                  _jsonString.codeUnitAt(_pos + 1) == 47 /* / */ ) {
+                _pos += 2;
+                closed = true;
+                break;
+              }
+              if (_jsonString.codeUnitAt(_pos) == 10) {
+                ++_lineNumber;
+              }
+              ++_pos;
             }
-            if (_jsonString.codeUnitAt(_pos) == 10) ++_lineNumber;
-            ++_pos;
+            if (!closed) {
+              _error("Unterminated block comment");
+            }
+          } else /* this is a line comment */ {
+            while (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) != 10) {
+              ++_pos;
+            }
           }
-          if (!closed) {
-            _error("Unterminated block comment");
-          }
-          continue;
+          final Json5Comment comment = Json5Comment(
+            _jsonString.substring(startPos, _pos),
+            blockComment: blockComment,
+            precededByNewline: newlineFound,
+          );
+          _commentRegistry.add(
+            comment: comment,
+            commentLocation: newlineFound ? ECommentLocation.standaloneBefore : commentLocation,
+            container: _currentContainer!,
+            index: _currentIndex,
+          );
+          newlineFound = false;
         }
-        return;
+      } else {
+        break;
       }
-      if (codeUnit == 10) {
-        ++_lineNumber;
-      }
-      ++_pos;
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:meta/meta.dart';
 
 import 'json5_accessor.dart';
+import 'json5_comment_registry.dart';
 import 'json5_extensions.dart';
 import 'json5_io_stub.dart' if (dart.library.io) 'json5_io_native.dart' as io;
 import 'json5_parser.dart';
@@ -43,6 +44,7 @@ class Json5 with Json5Accessor {
 
   /// Indicates whether JSON keys are case sensitive.
   final bool caseSensitiveKeys;
+  Json5CommentRegistry? _commentRegistry;
   final Map<String, dynamic> _keyToValueMap;
 
   /// Indicates whether this Json5 object is read-only.
@@ -474,6 +476,12 @@ class Json5 with Json5Accessor {
         _keyToValueMap[localKey] = value;
     }
   }
+
+  //--------------------------------------------------------------------------------------------------
+  @internal
+  /// Internal use.
+  // ignore: avoid_setters_without_getters
+  set commentRegistry(Json5CommentRegistry commentRegistry) => _commentRegistry = commentRegistry;
 
   //--------------------------------------------------------------------------------------------------
   /// Copies entries from [copyFromJson] into this object.
