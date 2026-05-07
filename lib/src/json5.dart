@@ -345,7 +345,7 @@ class Json5 with Json5Accessor {
     if (value is Json5) {
       _formatMap(buffer: buffer, json5: json5, level: level, map: value._keyToValueMap);
     } else if (value is List) {
-      _formatList(buffer: buffer, level: level, list: value);
+      _formatList(buffer: buffer, json5: json5, level: level, list: value);
     } else if (value is String) {
       buffer
         ..write('"')

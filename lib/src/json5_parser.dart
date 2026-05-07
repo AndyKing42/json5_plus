@@ -8,8 +8,6 @@ class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   final bool _caseSensitiveKeys;
   final Json5CommentRegistry _commentRegistry;
-  Object? _currentContainer; // the current Json5 or List object
-  int _currentIndex; // the key index (for a Json5 object) or item index (for a List object)
   final String _jsonString;
   final int _jsonStringLength;
   int _lineNumber;
@@ -43,7 +41,13 @@ class Json5Parser {
       readOnly: readOnly,
     );
     while (true) {
-      parser._skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
+      if (parser._skipWhitespace()) {
+        parser._skipWhitespaceAndRegisterComments(
+          commentLocation: ECommentLocation.standaloneBefore,
+          container: jsonList,
+          index: 0,
+        );
+      }
       if (parser._pos >= parser._jsonStringLength) {
         break;
       }
@@ -66,7 +70,6 @@ class Json5Parser {
     required bool readOnly,
   }) : _caseSensitiveKeys = caseSensitiveKeys,
        _commentRegistry = Json5CommentRegistry(),
-       _currentIndex = 0,
        _jsonString = jsonString,
        _jsonStringLength = jsonString.length,
        _lineNumber = 1,
@@ -79,13 +82,24 @@ class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   Json5 _parse() {
     Json5 result;
-    _currentContainer = _commentRegistry;
-    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: ECommentLocation.standaloneBefore,
+        container: _commentRegistry,
+        index: 0,
+      );
+    }
     if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 123 /* { */ ) {
       _error("Source does not start with a JSON5 object");
     }
     result = _parseObject();
-    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneAfter);
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: ECommentLocation.standaloneAfter,
+        container: _commentRegistry,
+        index: 0,
+      );
+    }
     _commentRegistry.moveContainer(_commentRegistry, result);
     result.commentRegistry = _commentRegistry;
     return result;
@@ -94,31 +108,56 @@ class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   List<dynamic> _parseArray() {
     final List<dynamic> valueList = [];
-    final Object? parentContainer = _currentContainer;
-    final int parentIndex = _currentIndex;
-    _currentContainer = valueList;
-    _currentIndex = 0;
     ++_pos; // skip "["
-    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: ECommentLocation.standaloneBefore,
+        container: valueList,
+        index: 0,
+      );
+    }
     while (_pos < _jsonStringLength) {
       if (_jsonString.codeUnitAt(_pos) == 93) /* "]" */ {
         break;
       }
-      valueList.add(_parseValue(ECommentLocation.standaloneBefore));
-      _skipWhitespaceAndRegisterComments(ECommentLocation.beforeComma);
+      valueList.add(
+        _parseValue(
+          commentLocation: ECommentLocation.standaloneBefore,
+          container: valueList,
+          index: valueList.length,
+        ),
+      );
+      if (_skipWhitespace()) {
+        _skipWhitespaceAndRegisterComments(
+          commentLocation: ECommentLocation.beforeComma,
+          container: valueList,
+          index: valueList.length,
+        );
+      }
       if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44 /* , */ ) {
         ++_pos;
-        _skipWhitespaceAndRegisterComments(ECommentLocation.afterComma);
+        if (_skipWhitespace()) {
+          _skipWhitespaceAndRegisterComments(
+            commentLocation: ECommentLocation.afterComma,
+            container: valueList,
+            index: valueList.length,
+          );
+        }
       }
-      ++_currentIndex;
     }
-    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneAfter);
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: ECommentLocation.standaloneAfter,
+        container: valueList,
+        index: valueList.length,
+      );
+    }
     if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 93 /* ] */ ) {
       _error("Expected ']' at end of array");
     }
     ++_pos;
-    _currentContainer = parentContainer;
-    _currentIndex = parentIndex;
+    // _currentContainer = parentContainer;
+    // _currentIndex = parentIndex;
     return valueList;
   }
 
@@ -141,37 +180,77 @@ class Json5Parser {
   //--------------------------------------------------------------------------------------------------
   Json5 _parseObject() {
     final Json5 result = Json5(caseSensitiveKeys: _caseSensitiveKeys, readOnly: _readOnly);
-    Object? parentContainer = _currentContainer;
-    int parentIndex = _currentIndex;
-    _currentContainer = result;
-    _currentIndex = 0;
     ++_pos; // skip "{"
-    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneBefore);
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: ECommentLocation.standaloneBefore,
+        container: result,
+        index: 0,
+      );
+    }
+    int keyIndex = 0;
     while (_pos < _jsonStringLength) {
       if (_jsonString.codeUnitAt(_pos) == 125) /* "}" */ {
         break;
       }
       final String key = _parseKey();
-      _skipWhitespaceAndRegisterComments(ECommentLocation.beforeColon);
+      if (_skipWhitespace()) {
+        _skipWhitespaceAndRegisterComments(
+          commentLocation: ECommentLocation.beforeColon,
+          container: result,
+          index: keyIndex,
+        );
+      }
       if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 58 /* : */ ) {
         ++_pos;
-        _skipWhitespaceAndRegisterComments(ECommentLocation.afterColon);
+        if (_skipWhitespace()) {
+          _skipWhitespaceAndRegisterComments(
+            commentLocation: ECommentLocation.afterColon,
+            container: result,
+            index: keyIndex,
+          );
+        }
       }
-      result.set(key, _parseValue(ECommentLocation.afterColon));
-      _skipWhitespaceAndRegisterComments(ECommentLocation.beforeComma);
+      result.set(
+        key,
+        _parseValue(
+          commentLocation: ECommentLocation.afterColon,
+          container: result,
+          index: keyIndex,
+        ),
+      );
+      if (_skipWhitespace()) {
+        _skipWhitespaceAndRegisterComments(
+          commentLocation: ECommentLocation.beforeComma,
+          container: result,
+          index: keyIndex,
+        );
+      }
       if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44 /* , */ ) {
         ++_pos;
-        _skipWhitespaceAndRegisterComments(ECommentLocation.afterComma);
+        if (_skipWhitespace()) {
+          _skipWhitespaceAndRegisterComments(
+            commentLocation: ECommentLocation.afterComma,
+            container: result,
+            index: keyIndex,
+          );
+        }
       }
-      ++_currentIndex;
+      ++keyIndex;
     }
-    _skipWhitespaceAndRegisterComments(ECommentLocation.standaloneAfter);
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: ECommentLocation.standaloneAfter,
+        container: result,
+        index: keyIndex,
+      );
+    }
     if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 125 /* "}" */ ) {
       _error("Expected '}'");
     }
     ++_pos;
-    _currentContainer = parentContainer;
-    _currentIndex = parentIndex;
+    // _currentContainer = parentContainer;
+    // _currentIndex = parentIndex;
     return result;
   }
 
@@ -259,8 +338,18 @@ class Json5Parser {
   }
 
   //--------------------------------------------------------------------------------------------------
-  dynamic _parseValue(ECommentLocation commentLocation) {
-    _skipWhitespaceAndRegisterComments(commentLocation);
+  dynamic _parseValue({
+    required ECommentLocation commentLocation,
+    required Object container,
+    required int index,
+  }) {
+    if (_skipWhitespace()) {
+      _skipWhitespaceAndRegisterComments(
+        commentLocation: commentLocation,
+        container: container,
+        index: index,
+      );
+    }
     if (_pos >= _jsonStringLength) return null;
     final int codeUnit = _jsonString.codeUnitAt(_pos);
     switch (codeUnit) {
@@ -283,7 +372,25 @@ class Json5Parser {
   }
 
   //--------------------------------------------------------------------------------------------------
-  void _skipWhitespaceAndRegisterComments(ECommentLocation commentLocation) {
+  bool _skipWhitespace() {
+    while (_pos < _jsonStringLength) {
+      final int codeUnit = _jsonString.codeUnitAt(_pos);
+      if (codeUnit <= 32) {
+        if (codeUnit == 10) ++_lineNumber;
+        ++_pos;
+        continue;
+      }
+      return codeUnit == 47; // '/'
+    }
+    return false;
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  void _skipWhitespaceAndRegisterComments({
+    required ECommentLocation commentLocation,
+    required Object container,
+    required int index,
+  }) {
     bool newlineFound = false;
     while (_pos < _jsonStringLength) {
       final int codeUnit = _jsonString.codeUnitAt(_pos);
@@ -332,8 +439,8 @@ class Json5Parser {
           _commentRegistry.add(
             comment: comment,
             commentLocation: newlineFound ? ECommentLocation.standaloneBefore : commentLocation,
-            container: _currentContainer!,
-            index: _currentIndex,
+            container: container,
+            index: index,
           );
           newlineFound = false;
         }
