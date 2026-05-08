@@ -10,9 +10,11 @@ class Json5Parser {
   final Json5CommentRegistry _commentRegistry;
   final String _jsonString;
   final int _jsonStringLength;
+  final Map<String, String> _keyCacheMap;
   int _lineNumber;
   int _pos;
   final bool _readOnly;
+  final bool _useKeyCache;
 
   //--------------------------------------------------------------------------------------------------
   /// Decodes a JSON5 string.
@@ -72,9 +74,11 @@ class Json5Parser {
        _commentRegistry = Json5CommentRegistry(),
        _jsonString = jsonString,
        _jsonStringLength = jsonString.length,
+       _keyCacheMap = {},
        _lineNumber = 1,
        _pos = 0,
-       _readOnly = readOnly;
+       _readOnly = readOnly,
+       _useKeyCache = jsonString.length > 16_384;
 
   //--------------------------------------------------------------------------------------------------
   Never _error(String message) => throw FormatException("$message at line $_lineNumber, pos $_pos");
@@ -156,25 +160,33 @@ class Json5Parser {
       _error("Expected ']' at end of array");
     }
     ++_pos;
-    // _currentContainer = parentContainer;
-    // _currentIndex = parentIndex;
     return valueList;
   }
 
   //--------------------------------------------------------------------------------------------------
   String _parseKey() {
+    String result;
     int codeUnit = _jsonString.codeUnitAt(_pos);
-    if (codeUnit == 34 || codeUnit == 39) {
-      return _parseString(codeUnit);
+    if (codeUnit == 34 /* " */ || codeUnit == 39 /* ' */ ) {
+      result = _parseString(codeUnit);
+    } else {
+      final int start = _pos;
+      while (_pos < _jsonStringLength) {
+        codeUnit = _jsonString.codeUnitAt(_pos);
+        if (codeUnit == 58 /* : */ ||
+            codeUnit <= 32 ||
+            codeUnit == 44 /* , */ ||
+            codeUnit == 125 /* } */ ) {
+          break;
+        }
+        ++_pos;
+      }
+      result = _jsonString.substring(start, _pos);
     }
-    final int start = _pos;
-    while (_pos < _jsonStringLength) {
-      codeUnit = _jsonString.codeUnitAt(_pos);
-      // Stop at colon, space, or end of object
-      if (codeUnit == 58 || codeUnit <= 32 || codeUnit == 44 || codeUnit == 125) break;
-      ++_pos;
+    if (_useKeyCache) {
+      return _keyCacheMap[result] ??= result;
     }
-    return _jsonString.substring(start, _pos);
+    return result;
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -249,8 +261,6 @@ class Json5Parser {
       _error("Expected '}'");
     }
     ++_pos;
-    // _currentContainer = parentContainer;
-    // _currentIndex = parentIndex;
     return result;
   }
 
@@ -264,19 +274,13 @@ class Json5Parser {
       }
       ++_pos;
     }
-    final String val = _jsonString.substring(start, _pos);
-    switch (val) {
-      case "true":
-        return true;
-      case "false":
-        return false;
-      case "null":
-        return null;
-      default:
-        return val.startsWith("0x")
-            ? int.parse(val.substring(2), radix: 16)
-            : num.tryParse(val) ?? val;
-    }
+    final String s = _jsonString.substring(start, _pos);
+    return switch (s) {
+      "true" => true,
+      "false" => false,
+      "null" => null,
+      _ => s.startsWith("0x") ? int.parse(s.substring(2), radix: 16) : num.tryParse(s) ?? s,
+    };
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -285,9 +289,9 @@ class Json5Parser {
     while (_pos < _jsonStringLength) {
       final int codeUnit = _jsonString.codeUnitAt(_pos);
       if (codeUnit == quote) {
-        final String result = _jsonString.substring(start, _pos);
+        final String s = _jsonString.substring(start, _pos);
         ++_pos;
-        return result;
+        return s;
       }
       if (codeUnit == 92 || codeUnit == 10) {
         _pos = start;
@@ -309,9 +313,14 @@ class Json5Parser {
       }
       if (codeUnit == 92) /* "\" */ {
         ++_pos;
-        if (_pos >= _jsonStringLength) break;
+        if (_pos >= _jsonStringLength) {
+          break;
+        }
         final int nextCodeUnit = _jsonString.codeUnitAt(_pos);
         switch (nextCodeUnit) {
+          case 10:
+            ++_lineNumber;
+            buffer.writeCharCode(10); // Escaped newline
           case 98:
             buffer.writeCharCode(8); // "\b"
           case 116:
@@ -322,9 +331,6 @@ class Json5Parser {
             buffer.writeCharCode(12); // "\f"
           case 114:
             buffer.writeCharCode(13); // "\r"
-          case 10:
-            ++_lineNumber;
-            buffer.writeCharCode(10); // Escaped newline
           default:
             buffer.writeCharCode(nextCodeUnit);
         }
@@ -350,25 +356,19 @@ class Json5Parser {
         index: index,
       );
     }
-    if (_pos >= _jsonStringLength) return null;
-    final int codeUnit = _jsonString.codeUnitAt(_pos);
-    switch (codeUnit) {
-      case 123: // "{"
-        return _parseObject();
-      case 91: // "["
-        return _parseArray();
-      case 34 || 39: // '"' or "'"
-        return _parseString(codeUnit);
-      case 43 || 45 || 46 || (>= 48 && <= 57):
-        // Numbers (+, -, ., 0-9)
-        return _parsePrimitive();
-      case 116 || 102 || 110 || 73 || 78: // t, f, n, I, N
-        return _parsePrimitive();
-      case (>= 65 && <= 90) || (>= 97 && <= 122) || 95 || 36: // A-Z, a-z, _, $
-        return _parsePrimitive();
-      default:
-        _error('Unexpected character "${String.fromCharCode(codeUnit)}"');
+    if (_pos >= _jsonStringLength) {
+      return null;
     }
+    final int codeUnit = _jsonString.codeUnitAt(_pos);
+    return switch (codeUnit) {
+      123 => _parseObject(), // "{"
+      91 => _parseArray(), // "["
+      34 || 39 => _parseString(codeUnit), // '"' or "'"
+      43 || 45 || 46 || (>= 48 && <= 57) => _parsePrimitive(), // Numbers (+, -, ., 0-9)
+      116 || 102 || 110 || 73 || 78 => _parsePrimitive(), // t, f, n, I, N
+      (>= 65 && <= 90) || (>= 97 && <= 122) || 95 || 36 => _parsePrimitive(), // A-Z, a-z, _, $
+      _ => _error('Unexpected character "${String.fromCharCode(codeUnit)}",'),
+    };
   }
 
   //--------------------------------------------------------------------------------------------------

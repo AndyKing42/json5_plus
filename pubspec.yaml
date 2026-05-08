@@ -7,7 +7,9 @@ environment:
   sdk: '>=3.11.1 <4.0.0'
 
 dependencies:
+  ffi:
   meta:
+  win32:
 
 dev_dependencies:
   lints:

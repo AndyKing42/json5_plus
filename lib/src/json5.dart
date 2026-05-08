@@ -51,19 +51,21 @@ class Json5 with Json5Accessor {
   final bool readOnly;
 
   //--------------------------------------------------------------------------------------------------
-  static List<dynamic> _copyList(final List<dynamic> other) {
-    final List<dynamic> result = [];
-    for (final dynamic listItem in other) {
+  static List<dynamic> _copyList(final List<dynamic> otherList) {
+    final List<dynamic> resultList = [];
+    for (final dynamic listItem in otherList) {
       switch (listItem) {
         case List<dynamic> listValue:
-          result.add(_copyList(listValue));
+          resultList.add(_copyList(listValue));
         case Json5 json5Value:
-          result.add(Json5.fromJson5(json5Value, caseSensitiveKeys: json5Value.caseSensitiveKeys));
+          resultList.add(
+            Json5.fromJson5(json5Value, caseSensitiveKeys: json5Value.caseSensitiveKeys),
+          );
         default:
-          result.add(listItem);
+          resultList.add(listItem);
       }
     }
-    return result;
+    return resultList;
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -115,7 +117,7 @@ class Json5 with Json5Accessor {
     required List<dynamic> valueList,
   }) =>
       Json5(caseSensitiveKeys: caseSensitiveKeys, readOnly: readOnly)
-        ..setFromkeyAndValueLists(keyList, valueList);
+        ..setFromKeyAndValueLists(keyList, valueList);
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): explain this more
@@ -127,15 +129,15 @@ class Json5 with Json5Accessor {
     required List<dynamic> valueList,
   }) =>
       Json5(caseSensitiveKeys: caseSensitiveKeys, readOnly: readOnly)
-        ..setFromkeyToIndexAndValueList(keyToIndexMap, valueList);
+        ..setFromKeyToIndexAndValueList(keyToIndexMap, valueList);
 
   //--------------------------------------------------------------------------------------------------
   /// Creates a Json5 object from a Map.
   factory Json5.fromMap(
-    Map<dynamic, dynamic> map, {
+    Map<dynamic, dynamic> jsonMap, {
     bool caseSensitiveKeys = false,
     bool readOnly = false,
-  }) => Json5(caseSensitiveKeys: caseSensitiveKeys, readOnly: readOnly)..addAll(map);
+  }) => Json5(caseSensitiveKeys: caseSensitiveKeys, readOnly: readOnly)..addAll(jsonMap);
 
   //--------------------------------------------------------------------------------------------------
   /// Decodes a JSON5 string into a Json5 object.
@@ -155,35 +157,35 @@ class Json5 with Json5Accessor {
     : _keyToValueMap = caseSensitiveKeys
           ? {}
           : LinkedHashMap(
-              equals: (String a, String b) {
-                if (a.length != b.length) return false;
-                for (int i = 0; i < a.length; i++) {
-                  int unitA = a.codeUnitAt(i);
-                  int unitB = b.codeUnitAt(i);
-                  if (unitA == unitB) {
+              equals: (String stringA, String stringB) {
+                if (stringA.length != stringB.length) return false;
+                for (int i = 0; i < stringA.length; ++i) {
+                  int codeUnitA = stringA.codeUnitAt(i);
+                  int codeUnitB = stringB.codeUnitAt(i);
+                  if (codeUnitA == codeUnitB) {
                     continue;
                   }
-                  if (unitA > 127 || unitB > 127) {
-                    return a.toLowerCase() == b.toLowerCase();
+                  if (codeUnitA > 127 || codeUnitB > 127) {
+                    return stringA.toLowerCase() == stringB.toLowerCase();
                   }
-                  if (unitA >= 65 && unitA <= 90) unitA |= 0x20;
-                  if (unitB >= 65 && unitB <= 90) unitB |= 0x20;
-                  if (unitA != unitB) return false;
+                  if (codeUnitA >= 65 && codeUnitA <= 90) codeUnitA |= 0x20;
+                  if (codeUnitB >= 65 && codeUnitB <= 90) codeUnitB |= 0x20;
+                  if (codeUnitA != codeUnitB) return false;
                 }
                 return true;
               },
-              hashCode: (String s) {
-                for (int i = 0; i < s.length; i++) {
-                  if (s.codeUnitAt(i) > 127) {
-                    return s.toLowerCase().hashCode;
+              hashCode: (String stringValue) {
+                for (int i = 0; i < stringValue.length; ++i) {
+                  if (stringValue.codeUnitAt(i) > 127) {
+                    return stringValue.toLowerCase().hashCode;
                   }
                 }
                 int hash = 0;
-                for (int i = 0; i < s.length; i++) {
-                  int unit = s.codeUnitAt(i);
-                  if (unit >= 65 && unit <= 90) unit |= 0x20;
-                  hash = 0x1fffffff & (hash + unit);
-                  hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
+                for (int i = 0; i < stringValue.length; ++i) {
+                  int codeUnit = stringValue.codeUnitAt(i);
+                  if (codeUnit >= 65 && codeUnit <= 90) codeUnit |= 0x20;
+                  hash = 0x1fff_ffff & (hash + codeUnit);
+                  hash = 0x1fff_ffff & (hash + ((0x0007_ffff & hash) << 10));
                   hash ^= hash >> 6;
                 }
                 return hash;
@@ -198,12 +200,14 @@ class Json5 with Json5Accessor {
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
   /// Gets the [addAll] as a [void].
-  void addAll(Map<dynamic, dynamic>? map) {
+  void addAll(Map<dynamic, dynamic>? jsonMap) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
-    if (map == null || map.isEmpty) {
+    if (jsonMap == null || jsonMap.isEmpty) {
       return;
     }
-    map.forEach(set);
+    for (final MapEntry<dynamic, dynamic> entry in jsonMap.entries) {
+      set(entry.key, entry.value);
+    }
     _convertMap();
   }
 
@@ -211,29 +215,29 @@ class Json5 with Json5Accessor {
   // TODO(andy): document this!
   /// Gets the [asDoubleList] as a [List<double>].
   List<double> asDoubleList(final dynamic key) {
-    List<double> result;
-    final List<dynamic>? list = _keyToValueMap[_getkey(key)] as List<dynamic>?;
-    if (list == null) {
+    List<double> resultList;
+    final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
+    if (dynamicList == null) {
       return emptyDoubleList;
     }
-    result = [];
-    for (final Object? listItem in list) {
+    resultList = [];
+    for (final Object? listItem in dynamicList) {
       if (listItem is num) {
-        result.add(listItem.toDouble());
+        resultList.add(listItem.toDouble());
       } else {
-        result.add(listItem.toString().toDouble());
+        resultList.add(listItem.toString().toDouble());
       }
     }
-    return result;
+    return resultList;
   }
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
   /// Gets the [asDynamicList] as a [List<dynamic>].
   List<dynamic> asDynamicList(final dynamic key) {
-    final dynamic result = _keyToValueMap[_getkey(key)];
-    if (result is List<dynamic>) {
-      return result;
+    final dynamic resultList = _keyToValueMap[_getKey(key)];
+    if (resultList is List<dynamic>) {
+      return resultList;
     }
     return emptyDynamicList;
   }
@@ -242,66 +246,66 @@ class Json5 with Json5Accessor {
   // TODO(andy): document this!
   /// Gets the [asIntList] as a [List<int>].
   List<int> asIntList(final dynamic key) {
-    List<int> result;
-    final List<dynamic>? list = _keyToValueMap[_getkey(key)] as List<dynamic>?;
-    if (list == null) {
+    List<int> resultList;
+    final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
+    if (dynamicList == null) {
       return emptyIntList;
     }
-    result = [];
-    for (final Object? listItem in list) {
+    resultList = [];
+    for (final Object? listItem in dynamicList) {
       if (listItem is num) {
-        result.add(listItem.toInt());
+        resultList.add(listItem.toInt());
       } else {
-        result.add(listItem.toString().toInt());
+        resultList.add(listItem.toString().toInt());
       }
     }
-    return result;
+    return resultList;
   }
 
   //--------------------------------------------------------------------------------------------------
   /// @return EmptyJson if no entry is found.
-  Json5 asJson(final dynamic key) => _keyToValueMap[_getkey(key)] as Json5? ?? emptyJson;
+  Json5 asJson(final dynamic key) => _keyToValueMap[_getKey(key)] as Json5? ?? emptyJson;
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
   /// Gets the [asJsonList] as a [List<Json5>].
   List<Json5> asJsonList(final dynamic key) {
-    List<Json5> result;
-    final List<dynamic>? list = _keyToValueMap[_getkey(key)] as List<dynamic>?;
-    if (list == null) {
+    List<Json5> resultList;
+    final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
+    if (dynamicList == null) {
       return emptyJsonList;
     }
-    result = [];
-    for (final Object? listItem in list) {
+    resultList = [];
+    for (final Object? listItem in dynamicList) {
       if (listItem is Json5) {
-        result.add(listItem);
+        resultList.add(listItem);
       }
     }
-    return result;
+    return resultList;
   }
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
   /// Gets the [asStringList] as a [List<String>].
   List<String> asStringList(final dynamic key) {
-    List<String> result;
-    final List<dynamic>? list = _keyToValueMap[_getkey(key)] as List<dynamic>?;
-    if (list == null) {
+    List<String> resultList;
+    final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
+    if (dynamicList == null) {
       return emptyStringList;
     }
-    result = [];
-    for (final Object? listItem in list) {
+    resultList = [];
+    for (final Object? listItem in dynamicList) {
       if (listItem != null) {
-        result.add(listItem.toString());
+        resultList.add(listItem.toString());
       }
     }
-    return result;
+    return resultList;
   }
 
   //--------------------------------------------------------------------------------------------------
   @override
   @internal
-  dynamic asType(dynamic key) => _keyToValueMap[_getkey(key)];
+  dynamic asType(dynamic key) => _keyToValueMap[_getKey(key)];
 
   //--------------------------------------------------------------------------------------------------
   void _convertList(List<dynamic> list) {
@@ -317,35 +321,71 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   void _convertMap() {
-    _keyToValueMap.forEach((final String key, final dynamic value) {
-      switch (value) {
+    for (final MapEntry<String, dynamic> entry in _keyToValueMap.entries) {
+      final String key = entry.key;
+      switch (entry.value) {
         case Map<dynamic, dynamic> mapValue:
           _keyToValueMap[key] = Json5.fromMap(mapValue, caseSensitiveKeys: caseSensitiveKeys);
         case List<dynamic> listValue:
           _convertList(listValue);
       }
-    });
+    }
   }
 
   //--------------------------------------------------------------------------------------------------
   void _formatEntry({
     required StringBuffer buffer,
+    required Object container,
+    required bool includeComments,
+    required int index,
     required bool json5,
     required String key,
     required int level,
     required dynamic value,
   }) {
     final String prefix = "  " * level;
+    buffer.write(prefix);
+    _writeComments(
+      buffer: buffer,
+      container: container,
+      includeComments: includeComments,
+      index: index,
+      level: level,
+      location: ECommentLocation.beforeColon,
+      skipPrecedingNewline: true,
+    );
     buffer
-      ..write(prefix)
       ..write(json5 ? "" : '"')
       ..write(key)
       ..write(json5 ? "" : '"')
-      ..write(": ");
+      ..write(":");
+    _writeComments(
+      buffer: buffer,
+      container: container,
+      includeComments: includeComments,
+      index: index,
+      level: level,
+      location: ECommentLocation.afterColon,
+    );
+    buffer.write(" ");
     if (value is Json5) {
-      _formatMap(buffer: buffer, json5: json5, level: level, map: value._keyToValueMap);
+      _formatMap(
+        buffer: buffer,
+        container: value,
+        includeComments: includeComments,
+        json5: json5,
+        jsonMap: value._keyToValueMap,
+        level: level,
+      );
     } else if (value is List) {
-      _formatList(buffer: buffer, json5: json5, level: level, list: value);
+      _formatList(
+        buffer: buffer,
+        container: value,
+        dynamicList: value,
+        includeComments: includeComments,
+        json5: json5,
+        level: level,
+      );
     } else if (value is String) {
       buffer
         ..write('"')
@@ -364,26 +404,50 @@ class Json5 with Json5Accessor {
   //--------------------------------------------------------------------------------------------------
   void _formatList({
     required StringBuffer buffer,
+    required Object container,
+    required List<dynamic> dynamicList,
+    required bool includeComments,
     required bool json5,
     required int level,
-    required List<dynamic> list,
   }) {
-    if (list.isEmpty) {
-      buffer
-        ..write("  " * level)
-        ..write("[]");
+    if (dynamicList.isEmpty) {
+      buffer.write("[]");
       return;
     }
-    buffer.writeln("[");
+    buffer.write("[");
+    _writeComments(
+      buffer: buffer,
+      container: container,
+      includeComments: includeComments,
+      index: 0,
+      level: level + 1,
+      location: ECommentLocation.standaloneBefore,
+    );
+    buffer.writeln();
     final String prefix = "  " * (level + 1);
-    for (int i = 0; i < list.length; ++i) {
-      dynamic value = list[i];
+    for (int i = 0; i < dynamicList.length; ++i) {
+      dynamic value = dynamicList[i];
       switch (value) {
         case Json5 jsonValue:
           buffer.write(prefix);
-          _formatMap(buffer: buffer, json5: json5, level: level + 1, map: jsonValue._keyToValueMap);
+          _formatMap(
+            buffer: buffer,
+            container: jsonValue,
+            includeComments: includeComments,
+            json5: json5,
+            jsonMap: jsonValue._keyToValueMap,
+            level: level + 1,
+          );
         case List<dynamic> listValue:
-          _formatList(buffer: buffer, json5: json5, level: level + 1, list: listValue);
+          buffer.write(prefix);
+          _formatList(
+            buffer: buffer,
+            container: listValue,
+            dynamicList: listValue,
+            includeComments: includeComments,
+            json5: json5,
+            level: level + 1,
+          );
         case String stringValue:
           buffer
             ..write(prefix)
@@ -395,8 +459,36 @@ class Json5 with Json5Accessor {
             ..write(prefix)
             ..write(value);
       }
-      buffer.writeln(",");
+      if (json5 || i < dynamicList.length - 1) {
+        buffer.write(",");
+      }
+      _writeComments(
+        buffer: buffer,
+        container: container,
+        includeComments: includeComments,
+        index: i,
+        level: level + 1,
+        location: ECommentLocation.beforeComma,
+      );
+      _writeComments(
+        buffer: buffer,
+        container: container,
+        includeComments: includeComments,
+        index: i,
+        level: level + 1,
+        location: ECommentLocation.afterComma,
+      );
+      buffer.writeln();
     }
+    _writeComments(
+      buffer: buffer,
+      container: container,
+      includeComments: includeComments,
+      index: dynamicList.length,
+      level: level + 1,
+      location: ECommentLocation.standaloneAfter,
+      skipPrecedingNewline: true,
+    );
     buffer
       ..write("  " * level)
       ..write("]");
@@ -405,21 +497,69 @@ class Json5 with Json5Accessor {
   //--------------------------------------------------------------------------------------------------
   void _formatMap({
     required StringBuffer buffer,
+    required Object container,
+    required bool includeComments,
     required bool json5,
+    required Map<String, dynamic> jsonMap,
     required int level,
-    required Map<String, dynamic> map,
   }) {
-    if (map.isEmpty) {
+    if (jsonMap.isEmpty) {
       buffer.write("{}");
       return;
     }
-    buffer.writeln("{");
-    final List<String> sortedKeys = map.keys.toList();
-    for (int i = 0; i < sortedKeys.length; ++i) {
-      final String key = sortedKeys[i];
-      _formatEntry(buffer: buffer, json5: json5, key: key, level: level + 1, value: map[key]);
-      buffer.writeln(json5 || i < sortedKeys.length - 1 ? "," : "");
+    buffer.write("{");
+    _writeComments(
+      buffer: buffer,
+      container: container,
+      includeComments: includeComments,
+      index: 0,
+      level: level + 1,
+      location: ECommentLocation.standaloneBefore,
+    );
+    buffer.writeln();
+    final List<String> sortedKeyList = jsonMap.keys.toList();
+    for (int i = 0; i < sortedKeyList.length; ++i) {
+      final String key = sortedKeyList[i];
+      _formatEntry(
+        buffer: buffer,
+        container: container,
+        includeComments: includeComments,
+        index: i,
+        json5: json5,
+        key: key,
+        level: level + 1,
+        value: jsonMap[key],
+      );
+      if (json5 || i < sortedKeyList.length - 1) {
+        buffer.write(",");
+      }
+      _writeComments(
+        buffer: buffer,
+        container: container,
+        includeComments: includeComments,
+        index: i,
+        level: level + 1,
+        location: ECommentLocation.beforeComma,
+      );
+      _writeComments(
+        buffer: buffer,
+        container: container,
+        includeComments: includeComments,
+        index: i,
+        level: level + 1,
+        location: ECommentLocation.afterComma,
+      );
+      buffer.writeln();
     }
+    _writeComments(
+      buffer: buffer,
+      container: container,
+      includeComments: includeComments,
+      index: sortedKeyList.length,
+      level: level + 1,
+      location: ECommentLocation.standaloneAfter,
+      skipPrecedingNewline: true,
+    );
     buffer
       ..write("  " * level)
       ..write("}");
@@ -441,7 +581,7 @@ class Json5 with Json5Accessor {
   bool get isNotEmpty => _keyToValueMap.isNotEmpty;
 
   //--------------------------------------------------------------------------------------------------
-  String _getkey(dynamic key) {
+  String _getKey(dynamic key) {
     if (key is String) {
       return key;
     }
@@ -464,7 +604,7 @@ class Json5 with Json5Accessor {
   /// Gets the [set] as a [void].
   void set(dynamic key, final dynamic value) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
-    String localKey = _getkey(key);
+    String localKey = _getKey(key);
     switch (value) {
       case null:
         _keyToValueMap.remove(localKey);
@@ -516,8 +656,8 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  /// Gets the [setFromkeyAndValueLists] as a [void].
-  void setFromkeyAndValueLists(List<String>? keyList, List<dynamic>? valueList) {
+  /// Gets the [setFromKeyAndValueLists] as a [void].
+  void setFromKeyAndValueLists(List<String>? keyList, List<dynamic>? valueList) {
     if (keyList == null || valueList == null) {
       return;
     }
@@ -531,8 +671,8 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   // TODO(andy): document this!
-  /// Gets the [setFromkeyToIndexAndValueList] as a [void].
-  void setFromkeyToIndexAndValueList(Map<String, int>? keyToIndexMap, List<dynamic>? valueList) {
+  /// Gets the [setFromKeyToIndexAndValueList] as a [void].
+  void setFromKeyToIndexAndValueList(Map<String, int>? keyToIndexMap, List<dynamic>? valueList) {
     if (keyToIndexMap == null || valueList == null) {
       return;
     }
@@ -545,7 +685,7 @@ class Json5 with Json5Accessor {
   // TODO(andy): document this!
   /// Gets the [setIfChanged] as a [void].
   void setIfChanged(final dynamic key, final Json5 oldJson, final dynamic newValue) {
-    String localKey = _getkey(key);
+    String localKey = _getKey(key);
     if (newValue != oldJson._keyToValueMap[localKey]) {
       set(localKey, newValue);
     }
@@ -572,34 +712,34 @@ class Json5 with Json5Accessor {
   /// values.
   /// For other types, equality is determined by the == operator.
   void setIfNotEqual(dynamic key, {required dynamic newValue, required dynamic oldValue}) {
-    bool isEqual(dynamic a, dynamic b) {
-      if (identical(a, b)) return true;
-      if (a is Json5 && b is Json5) {
-        if (a._keyToValueMap.length != b._keyToValueMap.length) return false;
-        for (final String k in a._keyToValueMap.keys) {
-          if (!b._keyToValueMap.containsKey(k)) return false;
-          if (!isEqual(a._keyToValueMap[k], b._keyToValueMap[k])) return false;
+    bool isEqual(dynamic valueA, dynamic valueB) {
+      if (identical(valueA, valueB)) return true;
+      if (valueA is Json5 && valueB is Json5) {
+        if (valueA._keyToValueMap.length != valueB._keyToValueMap.length) return false;
+        for (final String mapKey in valueA._keyToValueMap.keys) {
+          if (!valueB._keyToValueMap.containsKey(mapKey)) return false;
+          if (!isEqual(valueA._keyToValueMap[mapKey], valueB._keyToValueMap[mapKey])) return false;
         }
         return true;
       }
-      if (a is Map<dynamic, dynamic> && b is Map<dynamic, dynamic>) {
-        if (a.length != b.length) return false;
-        for (final Object? k in a.keys) {
-          if (!b.containsKey(k)) return false;
-          if (!isEqual(a[k], b[k])) return false;
+      if (valueA is Map<dynamic, dynamic> && valueB is Map<dynamic, dynamic>) {
+        if (valueA.length != valueB.length) return false;
+        for (final Object? mapKey in valueA.keys) {
+          if (!valueB.containsKey(mapKey)) return false;
+          if (!isEqual(valueA[mapKey], valueB[mapKey])) return false;
         }
         return true;
       }
-      if (a is Iterable<dynamic> && b is Iterable<dynamic>) {
-        if (a.length != b.length) return false;
-        final Iterator<dynamic> itA = a.iterator;
-        final Iterator<dynamic> itB = b.iterator;
-        while (itA.moveNext() && itB.moveNext()) {
-          if (!isEqual(itA.current, itB.current)) return false;
+      if (valueA is Iterable<dynamic> && valueB is Iterable<dynamic>) {
+        if (valueA.length != valueB.length) return false;
+        final Iterator<dynamic> iteratorA = valueA.iterator;
+        final Iterator<dynamic> iteratorB = valueB.iterator;
+        while (iteratorA.moveNext() && iteratorB.moveNext()) {
+          if (!isEqual(iteratorA.current, iteratorB.current)) return false;
         }
         return true;
       }
-      return a == b;
+      return valueA == valueB;
     }
 
     if (!isEqual(oldValue, newValue)) {
@@ -617,9 +757,16 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   /// Returns a pretty-printed JSON or JSON5 string with 2-space indentation.
-  String toFormattedString({bool json5 = true}) {
+  String toFormattedString({bool includeComments = true, bool json5 = true}) {
     StringBuffer result = StringBuffer();
-    _formatMap(buffer: result, json5: json5, level: 0, map: _keyToValueMap);
+    _formatMap(
+      buffer: result,
+      container: this,
+      includeComments: includeComments,
+      json5: json5,
+      jsonMap: _keyToValueMap,
+      level: 0,
+    );
     return result.toString();
   }
 
@@ -630,16 +777,16 @@ class Json5 with Json5Accessor {
   String toJsonString({bool json5 = true}) {
     final buffer = StringBuffer("{");
     bool firstEntry = true;
-    _keyToValueMap.forEach((String key, dynamic value) {
+    for (final MapEntry<String, dynamic> entry in _keyToValueMap.entries) {
       buffer
         ..write(firstEntry ? "" : ",")
         ..write(json5 ? "" : '"')
-        ..write(key)
+        ..write(entry.key)
         ..write(json5 ? "" : '"')
         ..write(":")
-        ..write(_valueToString(value, json5: json5));
+        ..write(_valueToString(entry.value, json5: json5));
       firstEntry = false;
-    });
+    }
     if (!firstEntry && json5) {
       buffer.write(",");
     }
@@ -652,20 +799,66 @@ class Json5 with Json5Accessor {
   String toString() => toJsonString();
 
   //--------------------------------------------------------------------------------------------------
-  String _valueToString(dynamic value, {bool json5 = true}) => switch (value) {
-    String stringValue => '"${_escapeString(stringValue)}"',
-    num numValue => numValue.toString(),
-    bool boolValue => boolValue ? "true" : "false",
-    Json5 jsonValue => jsonValue.toJsonString(json5: json5),
-    List<dynamic> listValue =>
-      "[${listValue.map((e) => _valueToString(e, json5: json5)).join(",")}]",
-    Enum enumValue => '"${_getkey(enumValue)}"',
-    null => "null",
-    var v =>
-      json5Util.isEnum(v)
-          ? '"${v.toString().split('.').last}"'
-          : '"${_escapeString(v.toString())}"',
-  };
+  String _valueToString(dynamic value, {bool json5 = true}) {
+    switch (value) {
+      case String stringValue:
+        return '"${_escapeString(stringValue)}"';
+      case num numValue:
+        return numValue.toString();
+      case bool boolValue:
+        return boolValue ? "true" : "false";
+      case Json5 jsonValue:
+        return jsonValue.toJsonString(json5: json5);
+      case List<dynamic> listValue:
+        final StringBuffer buffer = StringBuffer("[");
+        for (int i = 0; i < listValue.length; ++i) {
+          if (i > 0) {
+            buffer.write(",");
+          }
+          buffer.write(_valueToString(listValue[i], json5: json5));
+        }
+        buffer.write("]");
+        return buffer.toString();
+      case Enum enumValue:
+        return '"${_getKey(enumValue)}"';
+      case null:
+        return "null";
+      default:
+        if (json5Util.isEnum(value)) {
+          return '"${value.toString().split(".").last}"';
+        }
+        return '"${_escapeString(value.toString())}"';
+    }
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  void _writeComments({
+    required StringBuffer buffer,
+    required Object container,
+    required bool includeComments,
+    required int index,
+    required int level,
+    required ECommentLocation location,
+    bool skipPrecedingNewline = false,
+  }) {
+    final Json5CommentRegistry? registry = _commentRegistry;
+    if (!includeComments || registry == null) return;
+    final List<Json5Comment>? comments = registry.getComments(container, index, location);
+    if (comments == null) return;
+    final String indent = "  " * level;
+    for (int i = 0; i < comments.length; ++i) {
+      final Json5Comment comment = comments[i];
+      if (comment.precededByNewline) {
+        if (!(skipPrecedingNewline && i == 0)) {
+          buffer.writeln();
+        }
+        buffer.write(indent);
+      } else {
+        buffer.write(" ");
+      }
+      buffer.write(comment.comment);
+    }
+  }
 
   //--------------------------------------------------------------------------------------------------
 }
