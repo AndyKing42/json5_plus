@@ -331,6 +331,32 @@ class Json5Parser {
             buffer.writeCharCode(12); // "\f"
           case 114:
             buffer.writeCharCode(13); // "\r"
+          case 117: // "\u"
+            if (_pos + 4 >= _jsonStringLength) {
+              _error("Incomplete unicode escape");
+            }
+            final int? charCode = int.tryParse(
+              _jsonString.substring(_pos + 1, _pos + 5),
+              radix: 16,
+            );
+            if (charCode == null) {
+              _error("Invalid unicode escape");
+            }
+            buffer.writeCharCode(charCode);
+            _pos += 4;
+          case 120: // "\x"
+            if (_pos + 2 >= _jsonStringLength) {
+              _error("Incomplete hex escape");
+            }
+            final int? charCode = int.tryParse(
+              _jsonString.substring(_pos + 1, _pos + 3),
+              radix: 16,
+            );
+            if (charCode == null) {
+              _error("Invalid hex escape");
+            }
+            buffer.writeCharCode(charCode);
+            _pos += 2;
           default:
             buffer.writeCharCode(nextCodeUnit);
         }
