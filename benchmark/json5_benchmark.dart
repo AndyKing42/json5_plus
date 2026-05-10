@@ -35,8 +35,8 @@ void main(List<String> args) {
   const String json5Input =
       r'{id:"64c9f1",index:0,guid:"86273461-1234-4321-9abc-1234567890ab",isActive:true,balance:"$3,924.33",picture:"http://placehold.it/32x32",age:32,eyeColor:"blue",name:"Andy",gender:"male",company:"TECH-CORP",email:"andy@techcorp.com",phone:"+1 (900) 555-2345",address:"123 Main St, Seattle, WA",tags":["dart","json","json","performance","speed"]}';
 
-  const int iterations = 1000000;
-  const int fileIterations = 10000;
+  const int iterations = 1_000_000;
+  const int fileIterations = 10_000;
 
   // Lock process to High Priority and Core 1 to stabilize Jitter
   final int handle = GetCurrentProcess();
@@ -69,7 +69,9 @@ void main(List<String> args) {
       List<int> results = [];
       for (int i = 0; i < totalRuns; i++) {
         final ProcessResult result = Process.runSync(executable, [...baseArgs, mode]);
-        if (result.exitCode != 0) throw Exception("Error in $mode: ${result.stderr}");
+        if (result.exitCode != 0) {
+          throw Exception("Error in $mode: ${result.stderr}");
+        }
         results.add(int.parse(result.stdout.toString().trim()));
       }
       results.sort();
@@ -99,14 +101,19 @@ void main(List<String> args) {
 
     print("\nResults for $iterations iterations ($totalRuns runs per test):");
     print("-----------------------------------");
-    printResults("JSON", runBenchSuite("json", iterations), iterations, false);
-    printResults("Json5", runBenchSuite("wrapper", iterations), iterations, false);
     printResults("Json5 (CS)", runBenchSuite("wrapper_cs", iterations), iterations, false);
+    printResults("Json5", runBenchSuite("wrapper", iterations), iterations, false);
+    printResults("Native JSON", runBenchSuite("json", iterations), iterations, false);
 
     if (File(filepath).existsSync()) {
       print("\nResults for $fileIterations iterations (Large File '$filepath'):");
       print("-----------------------------------");
-      printResults("JSON File", runBenchSuite("json_file", fileIterations), fileIterations, true);
+      printResults(
+        "Json5 File (CS)",
+        runBenchSuite("wrapper_file_cs", fileIterations),
+        fileIterations,
+        true,
+      );
       printResults(
         "Json5 File",
         runBenchSuite("wrapper_file", fileIterations),
@@ -114,8 +121,8 @@ void main(List<String> args) {
         true,
       );
       printResults(
-        "Json5 File (CS)",
-        runBenchSuite("wrapper_file_cs", fileIterations),
+        "Native JSON File",
+        runBenchSuite("json_file", fileIterations),
         fileIterations,
         true,
       );
@@ -128,16 +135,24 @@ void main(List<String> args) {
 
   // Minimal warmup to ramp up CPU clock
   for (int i = 0; i < 1000; i++) {
-    if (mode.startsWith("json")) jsonDecode(jsonInput);
+    if (mode.startsWith("json")) {
+      jsonDecode(jsonInput);
+    }
   }
 
   final stopwatch = Stopwatch()..start();
   if (mode.contains("_file")) {
     final String fileContent = File(filepath).readAsStringSync();
     for (int i = 0; i < fileIterations; ++i) {
-      if (mode == "json_file") jsonDecode(fileContent);
-      if (mode == "wrapper_file") Json5.fromString(fileContent);
-      if (mode == "wrapper_file_cs") Json5.fromString(fileContent, caseSensitiveKeys: true);
+      if (mode == "json_file") {
+        jsonDecode(fileContent);
+      }
+      if (mode == "wrapper_file") {
+        Json5.fromString(fileContent);
+      }
+      if (mode == "wrapper_file_cs") {
+        Json5.fromString(fileContent, caseSensitiveKeys: true);
+      }
     }
   } else {
     for (int i = 0; i < iterations; ++i) {

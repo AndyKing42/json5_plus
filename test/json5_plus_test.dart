@@ -132,6 +132,8 @@ line2",
         '["value1", "value2"', // Unclosed array
         r'{"keyr": \"value"}', // Invalid escape or token
         "{key: unquoted value}", // Invalid token containing spaces
+        '{"key": "unterminated string ', // Unterminated string
+        '{"key": "value"} /* unterminated block', // Unterminated block comment
       ];
 
       for (final invalidCase in invalidCases) {
@@ -364,6 +366,25 @@ line2",
       }
     });
 
+    test("File I/O (Json5.toFile)", () {
+      final file = File("test_temp_out.json5");
+      try {
+        Json5()
+          ..set("outKey", 123)
+          ..toFile("test_temp_out.json5");
+
+        expect(file.existsSync(), isTrue);
+        final String content = file.readAsStringSync();
+        expect(content, contains("outKey: 123"));
+      } finally {
+        try {
+          if (file.existsSync()) {
+            file.deleteSync();
+          }
+        } catch (_) {}
+      }
+    });
+
     test(r"$include and parameter substitution works", () {
       final file = File("test_include.json5")
         ..writeAsStringSync(r'''
@@ -371,6 +392,8 @@ line2",
   // Nested comment
   logPath: "${params.logDir}/${params.logPrefix}_app.log",
   level: "${params.logLevel}",
+  nestedTest: "${params.nested.target}",
+  missingTest: "${params.missingValue}",
 }
 ''');
       try {
@@ -378,7 +401,12 @@ line2",
 {
   appName: "MyApp",
   // Pick up the log settings:
-  logSettings: $include("test_include.json5", {logDir: "/var/logs", logLevel: "info", logPrefix: "MyApp",}),
+  logSettings: $include("test_include.json5", {
+    logDir: "/var/logs", 
+    logLevel: "info", 
+    logPrefix: "MyApp",
+    nested: {target: "success"}
+  }),
 }
 ''';
         final json = Json5.fromString(includeJson5String);
@@ -386,6 +414,8 @@ line2",
         final Json5 logSettings = json.asJson("logSettings");
         expect(logSettings["logPath"], "/var/logs/MyApp_app.log");
         expect(logSettings["level"], "info");
+        expect(logSettings["nestedTest"], "success");
+        expect(logSettings["missingTest"], r"${params.missingValue}");
 
         final String formatted = json.toFormattedString();
 

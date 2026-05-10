@@ -1,9 +1,7 @@
-// TODO(andy): document this!
-/// Extension methods for Json5DateTimeExtension.
+/// Extension methods for [DateTime].
 extension Json5DateTimeExtension on DateTime? {
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [formatIso8601] as a [String].
+  /// Returns the ISO 8601 representation of the date/time.
   String formatIso8601() {
     ArgumentError.checkNotNull(this, "DateTime cannot be null");
     return "${this!.year}"
@@ -24,12 +22,10 @@ extension Json5DateTimeExtension on DateTime? {
 }
 
 //==================================================================================================
-// TODO(andy): document this!
-/// Extension methods for Json5StringExtension.
+/// Extension methods for [String].
 extension Json5StringExtension on String? {
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [compareToIgnoreCase] as a [int].
+  /// Returns the result of comparing this tring to another string, ignoring case.
   int compareToIgnoreCase(String? other) {
     final int len = this?.length ?? 0;
     final int otherLen = other?.length ?? 0;
@@ -51,27 +47,21 @@ extension Json5StringExtension on String? {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [this!.trim] as a [||].
+  /// Returns true if the string is null, empty, or entirely whitespace.
   bool get isBlank => this == null || this!.isEmpty || this!.trim().isEmpty;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [!isBlank;] as a [=>].
-  bool get isNotBlank => !isBlank;
+  /// Returns true if the string is not: null; empty; or entirely whitespace.
+  Future<bool> get isNotBlank async => !isBlank;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Invokes toBool operation.
+  /// Converts the string to a boolan value
   bool toBool({final bool defaultValue = false}) => isBlank
       ? defaultValue
       : this![0] == "y" || this![0] == "Y" || this!.toLowerCase() == "true" || this! == "1";
 
   //--------------------------------------------------------------------------------------------------
-  /// Returns a DateTime extracted from a String.
-  /// @param s The String containing a date plus an optional time. The string can contain "/", "-",
-  /// " ", and ":" characters, the year can be two or four digits, and the optional time can be
-  /// hhmmss or hhmm.
+  /// Converts the string to a [DateTime].
   DateTime? toDateTime([final DateTime? defaultValue]) =>
       _toDateTime(defaultValue: defaultValue, utc: false);
 
@@ -127,16 +117,12 @@ extension Json5StringExtension on String? {
   }
 
   //--------------------------------------------------------------------------------------------------
-  /// Returns a UTC DateTime extracted from a String.
-  /// @param s The String containing a date plus an optional time. The string can contain "/", "-",
-  /// " ", and ":" characters, the year can be two or four digits, and the optional time can be
-  /// hhmmss or hhmm.
+  /// Converts the string to a UTC [DateTime].
   DateTime? toDateTimeUtc([final DateTime? defaultValue]) =>
       _toDateTime(defaultValue: defaultValue, utc: true);
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [toDouble] as a [double].
+  /// Converts the string to a [double].
   double toDouble([final double defaultValue = 0]) {
     try {
       return this == null ? 0 : double.parse(this!);
@@ -146,8 +132,7 @@ extension Json5StringExtension on String? {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [toInt] as a [int].
+  /// Converts the string to an integer.
   int toInt([final int defaultValue = 0]) {
     try {
       return this == null ? 0 : int.parse(this!);

@@ -2,17 +2,15 @@ import 'dart:collection';
 
 import 'package:meta/meta.dart';
 
-import 'json5_accessor.dart';
 import 'json5_comment_registry.dart';
 import 'json5_extensions.dart';
 import 'json5_io_stub.dart' if (dart.library.io) 'json5_io_native.dart' as io;
 import 'json5_parser.dart';
 import 'json5_util.dart';
+import 'typed_accessor_mixin.dart';
 
-// TODO(andy): document this!
-/// Represents a JSON object as a map of keys (strings) to values (objects). The values can be of
-/// type String, double, int, Json5, list of objects, or Boolean.
-class Json5 with Json5Accessor {
+/// Represents a JSON object.
+class Json5 with TypedAccessorMixin {
   //--------------------------------------------------------------------------------------------------
   /// An empty unmodifiable `double` list.
   static final List<double> emptyDoubleList = List.unmodifiable([]);
@@ -23,7 +21,7 @@ class Json5 with Json5Accessor {
   /// An empty unmodifiable `int` list.
   static final List<int> emptyIntList = List.unmodifiable([]);
 
-  /// Gets the [Json5] as a [=].
+  /// An empty unmodifiable `Json5` object.
   static final Json5 emptyJson = Json5(readOnly: true);
 
   /// An empty unmodifiable `Json5` list.
@@ -69,7 +67,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  /// Parses a string containing multiple JSON5 objects/arrays and returns them as a list,
+  /// Parses a string containing multiple JSON5 objects and returns them as a list,
   /// along with any trailing unprocessed text.
   static ({List<Json5> jsonList, String unprocessed}) decodeMultiple({
     bool caseSensitiveKeys = false,
@@ -131,8 +129,8 @@ class Json5 with Json5Accessor {
         ..setFromKeyAndValueLists(keyList, valueList);
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): explain this more
-  /// Creates a Json5 object from a map of key to index and a list of values.
+  /// Creates a Json5 object from a map of keys to indexes and a list of values. The indexes
+  /// represent the position of the values in the list.
   factory Json5.fromKeyToIndexMapAndValueList({
     bool caseSensitiveKeys = false,
     required Map<String, int> keyToIndexMap,
@@ -170,33 +168,43 @@ class Json5 with Json5Accessor {
     : _keyToValueMap = caseSensitiveKeys
           ? {}
           : LinkedHashMap(
-              equals: (String stringA, String stringB) {
-                if (stringA.length != stringB.length) return false;
-                for (int i = 0; i < stringA.length; ++i) {
-                  int codeUnitA = stringA.codeUnitAt(i);
-                  int codeUnitB = stringB.codeUnitAt(i);
-                  if (codeUnitA == codeUnitB) {
+              equals: (String s1, String s2) {
+                final int len = s1.length;
+                if (len != s2.length) {
+                  return false;
+                }
+                for (int i = 0; i < len; ++i) {
+                  int codeUnit1 = s1.codeUnitAt(i);
+                  int codeUnit2 = s2.codeUnitAt(i);
+                  if (codeUnit1 == codeUnit2) {
                     continue;
                   }
-                  if (codeUnitA > 127 || codeUnitB > 127) {
-                    return stringA.toLowerCase() == stringB.toLowerCase();
+                  if (codeUnit1 > 127 || codeUnit2 > 127) {
+                    return s1.toLowerCase() == s2.toLowerCase();
                   }
-                  if (codeUnitA >= 65 && codeUnitA <= 90) codeUnitA |= 0x20;
-                  if (codeUnitB >= 65 && codeUnitB <= 90) codeUnitB |= 0x20;
-                  if (codeUnitA != codeUnitB) return false;
+                  if (codeUnit1 >= 65 && codeUnit1 <= 90) {
+                    codeUnit1 |= 0x20;
+                  }
+                  if (codeUnit2 >= 65 && codeUnit2 <= 90) {
+                    codeUnit2 |= 0x20;
+                  }
+                  if (codeUnit1 != codeUnit2) {
+                    return false;
+                  }
                 }
                 return true;
               },
               hashCode: (String stringValue) {
-                for (int i = 0; i < stringValue.length; ++i) {
-                  if (stringValue.codeUnitAt(i) > 127) {
+                int hash = 0;
+                final int len = stringValue.length;
+                for (int i = 0; i < len; ++i) {
+                  int codeUnit = stringValue.codeUnitAt(i);
+                  if (codeUnit > 127) {
                     return stringValue.toLowerCase().hashCode;
                   }
-                }
-                int hash = 0;
-                for (int i = 0; i < stringValue.length; ++i) {
-                  int codeUnit = stringValue.codeUnitAt(i);
-                  if (codeUnit >= 65 && codeUnit <= 90) codeUnit |= 0x20;
+                  if (codeUnit >= 65 && codeUnit <= 90) {
+                    codeUnit |= 0x20;
+                  }
                   hash = 0x1fff_ffff & (hash + codeUnit);
                   hash = 0x1fff_ffff & (hash + ((0x0007_ffff & hash) << 10));
                   hash ^= hash >> 6;
@@ -206,13 +214,12 @@ class Json5 with Json5Accessor {
             );
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  ///
+  /// Delegates the assignment to the [set] method, for example, json5["asdf"] = 1 is equivalent to
+  /// json5.set("asdf", 1).
   void operator []=(dynamic key, dynamic value) => set(key, value);
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [addAll] as a [void].
+  /// Adds all entries from a [Map] to this Json5 object.
   void addAll(Map<dynamic, dynamic>? jsonMap) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     if (jsonMap == null || jsonMap.isEmpty) {
@@ -225,8 +232,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [asDoubleList] as a [List<double>].
+  /// Returns the list of [double] values for [key].
   List<double> asDoubleList(final dynamic key) {
     List<double> resultList;
     final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
@@ -245,8 +251,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [asDynamicList] as a [List<dynamic>].
+  /// Returns the list of values for [key].
   List<dynamic> asDynamicList(final dynamic key) {
     final dynamic resultList = _keyToValueMap[_getKey(key)];
     if (resultList is List<dynamic>) {
@@ -256,8 +261,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [asIntList] as a [List<int>].
+  /// Returns the list of [int] values for [key].
   List<int> asIntList(final dynamic key) {
     List<int> resultList;
     final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
@@ -276,12 +280,11 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  /// @return EmptyJson if no entry is found.
+  /// Returns the [Json5] object for [key].
   Json5 asJson(final dynamic key) => _keyToValueMap[_getKey(key)] as Json5? ?? emptyJson;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [asJsonList] as a [List<Json5>].
+  /// Returns the list of [Json5] values for [key].
   List<Json5> asJsonList(final dynamic key) {
     List<Json5> resultList;
     final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
@@ -298,8 +301,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [asStringList] as a [List<String>].
+  /// Returns the list of [String] values for [key].
   List<String> asStringList(final dynamic key) {
     List<String> resultList;
     final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
@@ -597,18 +599,15 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [keyToValueMap.entries;] as a [=>].
+  /// Returns the key/value entries for this Json5 object.
   Iterable<MapEntry<String, dynamic>> get entries => _keyToValueMap.entries;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [keyToValueMap.isEmpty;] as a [=>].
+  /// Returns true if this Json5 object is empty.
   bool get isEmpty => _keyToValueMap.isEmpty;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [keyToValueMap.isNotEmpty;] as a [=>].
+  /// Returns true if this Json5 object is not empty.
   bool get isNotEmpty => _keyToValueMap.isNotEmpty;
 
   //--------------------------------------------------------------------------------------------------
@@ -621,18 +620,15 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [keyToValueMap.keys;] as a [=>].
+  /// Returns the keys for this Json5 object.
   Iterable<String> get keys => _keyToValueMap.keys;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [keyToValueMap.length;] as a [=>].
+  /// Returns the number of key/value pairs in this Json5 object.
   int get length => _keyToValueMap.length;
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [set] as a [void].
+  /// Sets the value for [key] to [value].
   void set(dynamic key, final dynamic value) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     String localKey = _getKey(key);
@@ -676,8 +672,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [setFromMap] as a [void].
+  /// Updates this Json5 object with the entries from [copyFromMap].
   void setFromMap(final Map<dynamic, dynamic> copyFromMap) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
     for (final MapEntry<dynamic, dynamic> entry in copyFromMap.entries) {
@@ -686,8 +681,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [setFromKeyAndValueLists] as a [void].
+  /// Updates this Json5 object with the entries from [keyList] and [valueList].
   void setFromKeyAndValueLists(List<String>? keyList, List<dynamic>? valueList) {
     if (keyList == null || valueList == null) {
       return;
@@ -701,8 +695,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [setFromKeyToIndexAndValueList] as a [void].
+  /// Updates this Json5 object with the entries from [keyToIndexMap] and [valueList].
   void setFromKeyToIndexAndValueList(Map<String, int>? keyToIndexMap, List<dynamic>? valueList) {
     if (keyToIndexMap == null || valueList == null) {
       return;
@@ -713,8 +706,7 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [setIfChanged] as a [void].
+  /// Sets the value for [key] if the [newValue] has changed for the [oldJson] value.
   void setIfChanged(final dynamic key, final Json5 oldJson, final dynamic newValue) {
     String localKey = _getKey(key);
     if (newValue != oldJson._keyToValueMap[localKey]) {

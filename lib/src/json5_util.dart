@@ -1,9 +1,7 @@
-// TODO(andy): document this!
-/// Gets the [Json5Util._] as a [=].
+/// The Json5Util singleton.
 final Json5Util json5Util = Json5Util._();
 
-// TODO(andy): document this!
-/// A class that provides Json5Util functionality.
+/// A class that provides Json5Util utility methods.
 class Json5Util {
   //--------------------------------------------------------------------------------------------------
   final Set<Type> _builtinTypeSet;
@@ -13,8 +11,7 @@ class Json5Util {
     : _builtinTypeSet = Set.unmodifiable([bool, double, int, List, Map, Null, Set, String]);
 
   //--------------------------------------------------------------------------------------------------
-  // TODO(andy): document this!
-  /// Gets the [isEnum] as a [bool].
+  /// Returns true if [value] is an enum entry.
   bool isEnum(dynamic value) {
     Type type = value.runtimeType;
     if (_builtinTypeSet.contains(type)) {
