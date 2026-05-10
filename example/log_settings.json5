@@ -1,0 +1,5 @@
+{
+  // This file is included by json5_plus_example.dart
+  logPath: "${params.logDir}/${params.logPrefix}_app.log",
+  level: "${params.logLevel}",
+}

@@ -1,39 +1,39 @@
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+A Dart package for parsing and stringifying JSON5, which is a strict superset of JSON. JSON5 is an extension to the popular JSON file format that aims to be easier to write and maintain by hand (e.g., for config files) by allowing helpful features like unquoted keys, trailing commas, single quotes, and comments.
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages). 
+This package is built with performance in mind, offering parsing speeds that are highly competitive with the default JSON methods found in the standard Dart `dart:convert` library. Furthermore, it is fully safe for use in Dart web applications, cleanly avoiding the `JSObject` interop issues that can occasionally complicate web-based JSON manipulation.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages). 
--->
+## Why JSON5 Plus?
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
-
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- **JSON5 Features:** Supports all standard JSON5 features, making your configuration files and data payloads much more human-friendly.
+- **Type-Safe Accessors:** Provides built-in, typed access to values in your JSON payloads, drastically reducing boilerplate and manual type-casting errors. Note that when enums are used as keys the JSON key value will be derived by stripping the enum name and period.
+- **Opinionated Formatter:** Stringifies Dart objects into beautifully formatted JSON5 strings. It guarantees an almost lossless reproduction of your input structure and comments, though note that the exact output format is somewhat opinionated.
+- **Web & Cross-Platform:** 100% Dart native. Safely compiles to the web without triggering JavaScript `JSObject` type mapping errors.
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Add the following to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  json5_plus: ^1.0.0
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
+Here is a quick example of how to parse a JSON5 string:
 
 ```dart
-const like = 'sample';
+import 'package:json5_plus/json5_plus.dart';
+
+void main() {
+  final json5String = '{ key: "value", /* comment */ }';
+  final json = Json5.fromString(json5String);
+  print(json.asString('key'));
+}
 ```
 
 ## Additional information
 
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+For more information about the JSON5 specification, please visit [json5.org](https://json5.org/). 
+
+Contributions, bug reports, and feature requests are always welcome!

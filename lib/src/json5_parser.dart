@@ -12,6 +12,8 @@ class Json5Parser {
   final int _jsonStringLength;
   final Map<String, String> _keyCacheMap;
   int _lineNumber;
+  bool _newlineFoundInWhitespace;
+  final Map<String, dynamic>? _params;
   int _pos;
   final bool _readOnly;
   final bool _useKeyCache;
@@ -21,10 +23,12 @@ class Json5Parser {
   static Json5 decode({
     bool caseSensitiveKeys = false,
     required String jsonString,
+    Map<String, dynamic>? params,
     bool readOnly = false,
   }) => Json5Parser._(
     caseSensitiveKeys: caseSensitiveKeys,
     jsonString: jsonString,
+    params: params,
     readOnly: readOnly,
   )._parse();
 
@@ -34,12 +38,14 @@ class Json5Parser {
   static ({List<Json5> jsonList, String unprocessed}) decodeMultiple({
     required bool caseSensitiveKeys,
     required String jsonString,
+    Map<String, dynamic>? params,
     required bool readOnly,
   }) {
     final List<Json5> jsonList = [];
     final Json5Parser parser = Json5Parser._(
       caseSensitiveKeys: caseSensitiveKeys,
       jsonString: jsonString,
+      params: params,
       readOnly: readOnly,
     );
     while (true) {
@@ -69,6 +75,7 @@ class Json5Parser {
   Json5Parser._({
     required bool caseSensitiveKeys,
     required String jsonString,
+    Map<String, dynamic>? params,
     required bool readOnly,
   }) : _caseSensitiveKeys = caseSensitiveKeys,
        _commentRegistry = Json5CommentRegistry(),
@@ -76,6 +83,8 @@ class Json5Parser {
        _jsonStringLength = jsonString.length,
        _keyCacheMap = {},
        _lineNumber = 1,
+       _newlineFoundInWhitespace = false,
+       _params = params,
        _pos = 0,
        _readOnly = readOnly,
        _useKeyCache = jsonString.length > 16_384;
@@ -161,6 +170,102 @@ class Json5Parser {
     }
     ++_pos;
     return valueList;
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  dynamic _parseFunctionCall(
+    String functionName, {
+    required ECommentLocation commentLocation,
+    required Object container,
+    required int index,
+    required int startPos,
+  }) {
+    ++_pos; // skip "("
+    if (functionName == r"$include") {
+      _skipWhitespace();
+      if (_pos >= _jsonStringLength) {
+        _error("Unexpected end of string in function call");
+      }
+      final int codeUnit = _jsonString.codeUnitAt(_pos);
+      if (codeUnit != 34 /* " */ && codeUnit != 39 /* ' */ ) {
+        _error("Expected string literal for included file path");
+      }
+      final String includePath = _parseString(codeUnit);
+      Map<String, dynamic>? includeParams;
+      _skipWhitespace();
+      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44 /* , */ ) {
+        ++_pos;
+        _skipWhitespace();
+        if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 123 /* { */ ) {
+          final Json5 parsedObject = _parseObject();
+          includeParams = {};
+          for (final String key in parsedObject.keys) {
+            includeParams[key] = parsedObject.asType(key);
+          }
+        }
+        _skipWhitespace();
+        if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 44 /* , */ ) {
+          ++_pos; // skip optional trailing comma
+          _skipWhitespace();
+        }
+      }
+      if (_pos >= _jsonStringLength || _jsonString.codeUnitAt(_pos) != 41 /* ) */ ) {
+        _error("Expected ')' after function arguments");
+      }
+      ++_pos;
+      int pairStart = startPos - 1;
+      while (pairStart >= 0) {
+        final int c = _jsonString.codeUnitAt(pairStart);
+        if (c == 10 /* \n */ || c == 44 /* , */ || c == 123 /* { */ || c == 91 /* [ */ ) {
+          break;
+        }
+        pairStart--;
+      }
+      pairStart++;
+      final String originalText = _jsonString.substring(pairStart, _pos);
+      final List<String> lines = originalText.split('\n');
+      for (int i = 0; i < lines.length; i++) {
+        if (lines[i].endsWith('\r')) {
+          lines[i] = lines[i].substring(0, lines[i].length - 1);
+        }
+      }
+      while (lines.isNotEmpty && lines.first.trim().isEmpty) {
+        lines.removeAt(0);
+      }
+      while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+        lines.removeLast();
+      }
+      int baseIndent = -1;
+      for (final String line in lines) {
+        if (line.trim().isNotEmpty) {
+          final int indent = line.length - line.trimLeft().length;
+          if (baseIndent == -1 || indent < baseIndent) {
+            baseIndent = indent;
+          }
+        }
+      }
+      if (baseIndent > 0) {
+        for (int i = 0; i < lines.length; i++) {
+          if (lines[i].length >= baseIndent && lines[i].substring(0, baseIndent).trim().isEmpty) {
+            lines[i] = lines[i].substring(baseIndent);
+          }
+        }
+      }
+      final ECommentLocation targetLocation = index == 0
+          ? ECommentLocation.standaloneBefore
+          : ECommentLocation.afterComma;
+      final int targetIndex = index == 0 ? 0 : index - 1;
+      for (final String line in lines) {
+        _commentRegistry.add(
+          comment: Json5Comment("// $line", blockComment: false, precededByNewline: true),
+          commentLocation: targetLocation,
+          container: container,
+          index: targetIndex,
+        );
+      }
+      return Json5.fromFile(includePath, params: includeParams);
+    }
+    _error("Unknown function call: $functionName");
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -265,22 +370,50 @@ class Json5Parser {
   }
 
   //--------------------------------------------------------------------------------------------------
-  dynamic _parsePrimitive() {
+  dynamic _parsePrimitive({
+    required ECommentLocation commentLocation,
+    required Object container,
+    required int index,
+  }) {
     final int start = _pos;
     while (_pos < _jsonStringLength) {
       final int codeUnit = _jsonString.codeUnitAt(_pos);
-      if (codeUnit == 44 || codeUnit == 125 || codeUnit == 93 || codeUnit <= 32 || codeUnit == 58) {
+      if (codeUnit == 44 ||
+          codeUnit == 125 ||
+          codeUnit == 93 ||
+          codeUnit <= 32 ||
+          codeUnit == 58 ||
+          codeUnit == 40) {
         break;
       }
       ++_pos;
     }
     final String s = _jsonString.substring(start, _pos);
-    return switch (s) {
+    if (s == r"$include") {
+      final int savedPos = _pos;
+      final int savedLine = _lineNumber;
+      final bool savedNewline = _newlineFoundInWhitespace;
+      _skipWhitespace();
+      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 40 /* ( */ ) {
+        return _parseFunctionCall(
+          s,
+          commentLocation: commentLocation,
+          container: container,
+          index: index,
+          startPos: start,
+        );
+      }
+      _pos = savedPos;
+      _lineNumber = savedLine;
+      _newlineFoundInWhitespace = savedNewline;
+    }
+    final dynamic parsed = switch (s) {
       "true" => true,
       "false" => false,
       "null" => null,
       _ => s.startsWith("0x") ? int.parse(s.substring(2), radix: 16) : num.tryParse(s) ?? s,
     };
+    return parsed is String ? _resolveStringOrParam(parsed) : parsed;
   }
 
   //--------------------------------------------------------------------------------------------------
@@ -389,20 +522,78 @@ class Json5Parser {
     return switch (codeUnit) {
       123 => _parseObject(), // "{"
       91 => _parseArray(), // "["
-      34 || 39 => _parseString(codeUnit), // '"' or "'"
-      43 || 45 || 46 || (>= 48 && <= 57) => _parsePrimitive(), // Numbers (+, -, ., 0-9)
-      116 || 102 || 110 || 73 || 78 => _parsePrimitive(), // t, f, n, I, N
-      (>= 65 && <= 90) || (>= 97 && <= 122) || 95 || 36 => _parsePrimitive(), // A-Z, a-z, _, $
+      34 || 39 => _resolveStringOrParam(_parseString(codeUnit)), // '"' or "'"
+      43 || 45 || 46 || (>= 48 && <= 57) => _parsePrimitive(
+        commentLocation: commentLocation,
+        container: container,
+        index: index,
+      ), // Numbers (+, -, ., 0-9)
+      116 || 102 || 110 || 73 || 78 => _parsePrimitive(
+        commentLocation: commentLocation,
+        container: container,
+        index: index,
+      ), // t, f, n, I, N
+      (>= 65 && <= 90) || (>= 97 && <= 122) || 95 || 36 => _parsePrimitive(
+        commentLocation: commentLocation,
+        container: container,
+        index: index,
+      ), // A-Z, a-z, _, $
       _ => _error('Unexpected character "${String.fromCharCode(codeUnit)}",'),
     };
   }
 
   //--------------------------------------------------------------------------------------------------
+  dynamic _resolveParam(String key) {
+    if (_params == null) {
+      return null;
+    }
+    dynamic current = _params;
+    for (final String part in key.split(".")) {
+      if (current is Map) {
+        current = current[part];
+      } else if (current is Json5) {
+        current = current.asType(part);
+      } else {
+        return null;
+      }
+      if (current == null) {
+        return null;
+      }
+    }
+    return current;
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  dynamic _resolveStringOrParam(String stringValue) {
+    if (_params == null || !stringValue.contains(r"${params.")) {
+      return stringValue;
+    }
+    if (stringValue.startsWith(r"${params.") && stringValue.endsWith("}")) {
+      final String key = stringValue.substring(10, stringValue.length - 1);
+      if (stringValue == "${r"${params."}$key}") {
+        final dynamic resolved = _resolveParam(key);
+        if (resolved != null) {
+          return resolved;
+        }
+      }
+    }
+    return stringValue.replaceAllMapped(RegExp(r"\$\{params\.([^}]+)\}"), (Match match) {
+      final String key = match.group(1)!;
+      final dynamic resolved = _resolveParam(key);
+      return resolved != null ? resolved.toString() : match.group(0)!;
+    });
+  }
+
+  //--------------------------------------------------------------------------------------------------
   bool _skipWhitespace() {
+    _newlineFoundInWhitespace = false;
     while (_pos < _jsonStringLength) {
       final int codeUnit = _jsonString.codeUnitAt(_pos);
       if (codeUnit <= 32) {
-        if (codeUnit == 10) ++_lineNumber;
+        if (codeUnit == 10) {
+          ++_lineNumber;
+          _newlineFoundInWhitespace = true;
+        }
         ++_pos;
         continue;
       }
@@ -417,7 +608,8 @@ class Json5Parser {
     required Object container,
     required int index,
   }) {
-    bool newlineFound = false;
+    bool newlineFound = _newlineFoundInWhitespace;
+    _newlineFoundInWhitespace = false;
     while (_pos < _jsonStringLength) {
       final int codeUnit = _jsonString.codeUnitAt(_pos);
       if (codeUnit <= 32) {
@@ -464,7 +656,7 @@ class Json5Parser {
           );
           _commentRegistry.add(
             comment: comment,
-            commentLocation: newlineFound ? ECommentLocation.standaloneBefore : commentLocation,
+            commentLocation: commentLocation,
             container: container,
             index: index,
           );

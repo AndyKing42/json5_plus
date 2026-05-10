@@ -74,10 +74,12 @@ class Json5 with Json5Accessor {
   static ({List<Json5> jsonList, String unprocessed}) decodeMultiple({
     bool caseSensitiveKeys = false,
     required String jsonString,
+    Map<String, dynamic>? params,
     bool readOnly = false,
   }) => Json5Parser.decodeMultiple(
     caseSensitiveKeys: caseSensitiveKeys,
     jsonString: jsonString,
+    params: params,
     readOnly: readOnly,
   );
 
@@ -99,8 +101,17 @@ class Json5 with Json5Accessor {
 
   //--------------------------------------------------------------------------------------------------
   /// Creates a Json5 object by reading and parsing the contents of the file at [path].
-  factory Json5.fromFile(String path, {bool caseSensitiveKeys = false, bool readOnly = false}) =>
-      io.fromFile(caseSensitiveKeys: caseSensitiveKeys, path: path, readOnly: readOnly);
+  factory Json5.fromFile(
+    String path, {
+    bool caseSensitiveKeys = false,
+    Map<String, dynamic>? params,
+    bool readOnly = false,
+  }) => io.fromFile(
+    caseSensitiveKeys: caseSensitiveKeys,
+    params: params,
+    path: path,
+    readOnly: readOnly,
+  );
 
   //--------------------------------------------------------------------------------------------------
   /// Creates a Json5 object by performing a deep copy from another Json5 object.
@@ -144,10 +155,12 @@ class Json5 with Json5Accessor {
   factory Json5.fromString(
     String jsonString, {
     bool caseSensitiveKeys = false,
+    Map<String, dynamic>? params,
     bool readOnly = false,
   }) => Json5Parser.decode(
     caseSensitiveKeys: caseSensitiveKeys,
     jsonString: jsonString,
+    params: params,
     readOnly: readOnly,
   );
 
@@ -341,6 +354,7 @@ class Json5 with Json5Accessor {
     required bool json5,
     required String key,
     required int level,
+    Json5CommentRegistry? registry,
     required dynamic value,
   }) {
     final String prefix = "  " * level;
@@ -352,6 +366,7 @@ class Json5 with Json5Accessor {
       index: index,
       level: level,
       location: ECommentLocation.beforeColon,
+      registry: registry,
       skipPrecedingNewline: true,
     );
     buffer
@@ -366,6 +381,7 @@ class Json5 with Json5Accessor {
       index: index,
       level: level,
       location: ECommentLocation.afterColon,
+      registry: registry,
     );
     buffer.write(" ");
     if (value is Json5) {
@@ -376,6 +392,7 @@ class Json5 with Json5Accessor {
         json5: json5,
         jsonMap: value._keyToValueMap,
         level: level,
+        registry: value._commentRegistry ?? registry,
       );
     } else if (value is List) {
       _formatList(
@@ -385,6 +402,7 @@ class Json5 with Json5Accessor {
         includeComments: includeComments,
         json5: json5,
         level: level,
+        registry: registry,
       );
     } else if (value is String) {
       buffer
@@ -409,6 +427,7 @@ class Json5 with Json5Accessor {
     required bool includeComments,
     required bool json5,
     required int level,
+    Json5CommentRegistry? registry,
   }) {
     if (dynamicList.isEmpty) {
       buffer.write("[]");
@@ -422,6 +441,7 @@ class Json5 with Json5Accessor {
       index: 0,
       level: level + 1,
       location: ECommentLocation.standaloneBefore,
+      registry: registry,
     );
     buffer.writeln();
     final String prefix = "  " * (level + 1);
@@ -437,6 +457,7 @@ class Json5 with Json5Accessor {
             json5: json5,
             jsonMap: jsonValue._keyToValueMap,
             level: level + 1,
+            registry: jsonValue._commentRegistry ?? registry,
           );
         case List<dynamic> listValue:
           buffer.write(prefix);
@@ -447,6 +468,7 @@ class Json5 with Json5Accessor {
             includeComments: includeComments,
             json5: json5,
             level: level + 1,
+            registry: registry,
           );
         case String stringValue:
           buffer
@@ -469,6 +491,7 @@ class Json5 with Json5Accessor {
         index: i,
         level: level + 1,
         location: ECommentLocation.beforeComma,
+        registry: registry,
       );
       _writeComments(
         buffer: buffer,
@@ -477,6 +500,7 @@ class Json5 with Json5Accessor {
         index: i,
         level: level + 1,
         location: ECommentLocation.afterComma,
+        registry: registry,
       );
       buffer.writeln();
     }
@@ -487,6 +511,7 @@ class Json5 with Json5Accessor {
       index: dynamicList.length,
       level: level + 1,
       location: ECommentLocation.standaloneAfter,
+      registry: registry,
       skipPrecedingNewline: true,
     );
     buffer
@@ -502,6 +527,7 @@ class Json5 with Json5Accessor {
     required bool json5,
     required Map<String, dynamic> jsonMap,
     required int level,
+    Json5CommentRegistry? registry,
   }) {
     if (jsonMap.isEmpty) {
       buffer.write("{}");
@@ -515,6 +541,7 @@ class Json5 with Json5Accessor {
       index: 0,
       level: level + 1,
       location: ECommentLocation.standaloneBefore,
+      registry: registry,
     );
     buffer.writeln();
     final List<String> sortedKeyList = jsonMap.keys.toList();
@@ -528,6 +555,7 @@ class Json5 with Json5Accessor {
         json5: json5,
         key: key,
         level: level + 1,
+        registry: registry,
         value: jsonMap[key],
       );
       if (json5 || i < sortedKeyList.length - 1) {
@@ -540,6 +568,7 @@ class Json5 with Json5Accessor {
         index: i,
         level: level + 1,
         location: ECommentLocation.beforeComma,
+        registry: registry,
       );
       _writeComments(
         buffer: buffer,
@@ -548,6 +577,7 @@ class Json5 with Json5Accessor {
         index: i,
         level: level + 1,
         location: ECommentLocation.afterComma,
+        registry: registry,
       );
       buffer.writeln();
     }
@@ -558,6 +588,7 @@ class Json5 with Json5Accessor {
       index: sortedKeyList.length,
       level: level + 1,
       location: ECommentLocation.standaloneAfter,
+      registry: registry,
       skipPrecedingNewline: true,
     );
     buffer
@@ -756,6 +787,11 @@ class Json5 with Json5Accessor {
   }
 
   //--------------------------------------------------------------------------------------------------
+  /// Writes the formatted JSON5 representation of this object to the file at [path].
+  void toFile(String path, {bool includeComments = true, bool json5 = true}) =>
+      io.toFile(this, path, includeComments: includeComments, json5: json5);
+
+  //--------------------------------------------------------------------------------------------------
   /// Returns a pretty-printed JSON or JSON5 string with 2-space indentation.
   String toFormattedString({bool includeComments = true, bool json5 = true}) {
     StringBuffer result = StringBuffer();
@@ -766,6 +802,7 @@ class Json5 with Json5Accessor {
       json5: json5,
       jsonMap: _keyToValueMap,
       level: 0,
+      registry: _commentRegistry,
     );
     return result.toString();
   }
@@ -839,9 +876,9 @@ class Json5 with Json5Accessor {
     required int index,
     required int level,
     required ECommentLocation location,
+    Json5CommentRegistry? registry,
     bool skipPrecedingNewline = false,
   }) {
-    final Json5CommentRegistry? registry = _commentRegistry;
     if (!includeComments || registry == null) return;
     final List<Json5Comment>? comments = registry.getComments(container, index, location);
     if (comments == null) return;

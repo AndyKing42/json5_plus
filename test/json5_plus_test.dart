@@ -1,3 +1,4 @@
+import "dart:io";
 import "package:json5_plus/json5_plus.dart";
 import "package:test/test.dart";
 
@@ -249,6 +250,164 @@ line2",
     test("joinStrings utility works correctly", () {
       final String joined = json.joinStrings(["stringVal", "intVal", "missing"], "-");
       expect(joined, "hello-42"); // "missing" should be skipped because it defaults to ""
+    });
+  });
+
+  group("Json5 Additional Feature Tests", () {
+    test("Multiple Document Parsing (decodeMultiple)", () {
+      const jsonString = '{a: 1} {b: 2} trailing text';
+      final ({List<Json5> jsonList, String unprocessed}) result = Json5.decodeMultiple(
+        jsonString: jsonString,
+      );
+      expect(result.jsonList.length, 2);
+      expect(result.jsonList[0]["a"], 1);
+      expect(result.jsonList[1]["b"], 2);
+      expect(result.unprocessed.trim(), "trailing text");
+    });
+
+    test("Case Sensitivity (caseSensitiveKeys)", () {
+      final jsonInsensitive = Json5();
+      jsonInsensitive["Key"] = "value";
+      expect(jsonInsensitive["KEY"], "value");
+
+      final jsonSensitive = Json5(caseSensitiveKeys: true);
+      jsonSensitive["Key"] = "value";
+      expect(jsonSensitive["KEY"], isNull);
+    });
+
+    test("Read-Only Mode (readOnly)", () {
+      final json = Json5(readOnly: true);
+      expect(() => json["key"] = "value", throwsA(isA<AssertionError>()));
+    });
+
+    test("Conditional Setters", () {
+      final json = Json5();
+
+      // setIfChanged
+      final oldJson = Json5();
+      oldJson["key"] = "oldValue";
+      json.setIfChanged("key", oldJson, "newValue");
+      expect(json["key"], "newValue");
+
+      json.setIfChanged("key", oldJson, "oldValue"); // should not update
+      expect(json["key"], "newValue");
+
+      // setIfNotEqual
+      json.setIfNotEqual("map", newValue: {"a": 1}, oldValue: {"a": 2});
+      expect(json.asJson("map")["a"], 1);
+
+      // setIfNewValueIsNotEmpty
+      json.setIfNewValueIsNotEmpty("emptyStr", "");
+      expect(json.containsKey("emptyStr"), isFalse);
+
+      json.setIfNewValueIsNotEmpty("emptyList", <dynamic>[]);
+      expect(json.containsKey("emptyList"), isFalse);
+
+      json.setIfNewValueIsNotEmpty("validStr", "hello");
+      expect(json["validStr"], "hello");
+
+      // setIfNewValueIsNotNull
+      json.setIfNewValueIsNotNull("nullKey", null);
+      expect(json.containsKey("nullKey"), isFalse);
+
+      json.setIfNewValueIsNotNull("validKey", 123);
+      expect(json["validKey"], 123);
+    });
+
+    test("Alternative Factory Constructors", () {
+      final json1 = Json5.fromKeyAndValueLists(keyList: ["a", "b"], valueList: [1, 2]);
+      expect(json1["a"], 1);
+      expect(json1["b"], 2);
+
+      expect(
+        () => Json5.fromKeyAndValueLists(keyList: ["a"], valueList: [1, 2]),
+        throwsException, // Mismatched lengths
+      );
+
+      final json2 = Json5.fromKeyToIndexMapAndValueList(
+        keyToIndexMap: {"a": 0, "b": 1},
+        valueList: [1, 2],
+      );
+      expect(json2["a"], 1);
+      expect(json2["b"], 2);
+    });
+
+    test("Deep Copy Isolation (fromJson5 and setFromJson)", () {
+      final original = Json5();
+      original["list"] = [1, 2];
+      final nested = Json5();
+      nested["a"] = 1;
+      original["nested"] = nested;
+
+      final copy = Json5.fromJson5(original);
+
+      // Modify copy
+      copy.asDynamicList("list").add(3);
+      copy.asJson("nested")["a"] = 2;
+
+      // Ensure original is unchanged
+      expect(original.asDynamicList("list"), [1, 2]);
+      expect(original.asJson("nested")["a"], 1);
+    });
+
+    test("File I/O (Json5.fromFile)", () {
+      final file = File("test_temp.json5")..writeAsStringSync('{a: 1}');
+      try {
+        final json = Json5.fromFile("test_temp.json5");
+        expect(json["a"], 1);
+      } finally {
+        try {
+          if (file.existsSync()) {
+            file.deleteSync();
+          }
+        } catch (_) {} // Ignore file locking/deletion errors on Windows
+      }
+    });
+
+    test(r"$include and parameter substitution works", () {
+      final file = File("test_include.json5")
+        ..writeAsStringSync(r'''
+{
+  // Nested comment
+  logPath: "${params.logDir}/${params.logPrefix}_app.log",
+  level: "${params.logLevel}",
+}
+''');
+      try {
+        const includeJson5String = r'''
+{
+  appName: "MyApp",
+  // Pick up the log settings:
+  logSettings: $include("test_include.json5", {logDir: "/var/logs", logLevel: "info", logPrefix: "MyApp",}),
+}
+''';
+        final json = Json5.fromString(includeJson5String);
+
+        final Json5 logSettings = json.asJson("logSettings");
+        expect(logSettings["logPath"], "/var/logs/MyApp_app.log");
+        expect(logSettings["level"], "info");
+
+        final String formatted = json.toFormattedString();
+
+        // Assert the order of the multi-line injected comments
+        final int pickUpIndex = formatted.indexOf("// Pick up the log settings:");
+        final int includeIndex = formatted.indexOf(
+          r'// logSettings: $include("test_include.json5"',
+        );
+        final int logSettingsIndex = formatted.indexOf("logSettings: {");
+
+        expect(pickUpIndex != -1, isTrue);
+        expect(includeIndex != -1, isTrue);
+        expect(logSettingsIndex != -1, isTrue);
+        expect(pickUpIndex < includeIndex, isTrue);
+        expect(includeIndex < logSettingsIndex, isTrue);
+      } finally {
+        try {
+          if (file.existsSync()) {
+            file.deleteSync();
+          }
+        } catch (_) {}
+      }
     });
   });
 }
