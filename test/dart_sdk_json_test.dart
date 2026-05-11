@@ -201,9 +201,8 @@ void main() {
       testJson("false", false);
       testJson("null", null);
 
-      // In json5_plus, these parse as unquoted strings rather than throwing
-      testJson("truefalse", "truefalse");
-      testJson("trues", "trues");
+      testThrows("truefalse");
+      testThrows("trues");
     });
 
     test("Whitespace", () {

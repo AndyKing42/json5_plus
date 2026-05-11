@@ -107,6 +107,21 @@ class Json5 with TypedAccessorMixin {
   }
 
   //--------------------------------------------------------------------------------------------------
+  /// Decodes any JSON5 string into its dynamic Dart representation (which could be a Json5 object,
+  /// List, String, num, bool, or null).
+  static dynamic parseAny(
+    String jsonString, {
+    bool caseSensitiveKeys = false,
+    Map<String, dynamic>? params,
+    bool readOnly = false,
+  }) => Json5Parser.decodeAny(
+    caseSensitiveKeys: caseSensitiveKeys,
+    jsonString: jsonString,
+    params: params,
+    readOnly: readOnly,
+  );
+
+  //--------------------------------------------------------------------------------------------------
   /// Creates a Json5 object by reading and parsing the contents of the file at [path].
   factory Json5.fromFile(
     String path, {
