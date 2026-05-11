@@ -1,7 +1,8 @@
 name: json5_plus
 description: A JSON5 parser with type-safe accessors.
 version: 0.0.1
-publish_to: none
+repository: https://github.com/AndyKing42/json5_plus
+publish_to: https://pub.dev
 
 environment:
   sdk: '>=3.11.1 <4.0.0'

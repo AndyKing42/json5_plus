@@ -7,11 +7,10 @@ This package is built with performance in mind, offering parsing speeds that are
 ## Why JSON5 Plus?
 
 - **JSON5 Features:** Supports all standard JSON5 features, including unquoted keys, comments, and trailing commas, making your configuration files and data payloads much more human-friendly.
-- **Type-Safe Accessors:** Provides built-in, typed access to values in your JSON payloads, drastically reducing boilerplate and manual type-casting errors. Note that when enums are used as keys the JSON key value will be derived by stripping the enum name and period.
+- **Type-Safe Accessors:** Provides built-in, typed access to values in your JSON payloads, reducing boilerplate and manual type-casting errors. Note that when enums are used as keys the JSON key value will be derived by stripping the enum name and period. Keys can be either case-sensitive or case-insensitive.
 - **Opinionated Formatter:** Stringifies Dart objects into beautifully formatted JSON5 strings. It guarantees an almost lossless reproduction of your input structure and comments, though note that the exact output format is somewhat opinionated.
 - **Web & Cross-Platform:** 100% Dart native. Safely compiles to the web without triggering JavaScript `JSObject` type mapping errors.
 - **"$include" capability with Parameters:** Use a value of "$include" to include another JSON5 file within the current file, including the ability to pass parameters from the enclosing file to the included file.
-- **Case-insensitive keys:** Allows use of case-insensitive or case-sensitive key lookups.
 
 ## Getting started
 
