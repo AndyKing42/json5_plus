@@ -8,10 +8,10 @@ environment:
   sdk: '>=3.11.1 <4.0.0'
 
 dependencies:
-  ffi:
-  meta:
-  win32:
+  ffi: ^2.2.0
+  meta: ^1.18.2
+  win32: ^5.10.0
 
 dev_dependencies:
-  lints:
-  test:
+  lints: 6.1.0
+  test: 1.31.1
