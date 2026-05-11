@@ -3,6 +3,8 @@
 
 import 'package:json5_plus/json5_plus.dart';
 
+enum EConfigKeys { host, port }
+
 void main() {
   print('=== json5_plus Example ===\n');
   const json5String = '''
@@ -64,4 +66,12 @@ void main() {
       "Note: Ensure your working directory is the package root to run the include example.\n$e",
     );
   }
+
+  // 6. Using Enums as Keys
+  print('\n--- 6. Using Enums as Keys ---');
+  final enumJson = Json5();
+  enumJson[EConfigKeys.host] = '127.0.0.1';
+  enumJson.set(EConfigKeys.port, 8080);
+  print('Host: ${enumJson.asString(EConfigKeys.host)}');
+  print('Port: ${enumJson.asInt(EConfigKeys.port)}');
 }

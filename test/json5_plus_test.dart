@@ -250,7 +250,7 @@ line2",
     });
 
     test("joinStrings utility works correctly", () {
-      final String joined = json.joinStrings(["stringVal", "intVal", "missing"], "-");
+      final String joined = json.joinStrings(["stringVal", "intVal", "missing"], separator: "-");
       expect(joined, "hello-42"); // "missing" should be skipped because it defaults to ""
     });
   });

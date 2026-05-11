@@ -1,3 +1,4 @@
+import 'json5.dart';
 import 'json5_extensions.dart';
 
 /// Generic accessors that can be added to any collection type object. For example, the [Json5]

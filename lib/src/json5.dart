@@ -12,6 +12,12 @@ import 'typed_accessor_mixin.dart';
 /// Represents a JSON object.
 class Json5 with TypedAccessorMixin {
   //--------------------------------------------------------------------------------------------------
+  /// An empty unmodifiable `bool` list.
+  static final List<bool> emptyBoolList = List.unmodifiable([]);
+
+  /// An empty unmodifiable `DateTime` list.
+  static final List<DateTime> emptyDateTimeList = List.unmodifiable([]);
+
   /// An empty unmodifiable `double` list.
   static final List<double> emptyDoubleList = List.unmodifiable([]);
 
@@ -90,6 +96,9 @@ class Json5 with TypedAccessorMixin {
       if (escapedValue != null) {
         buffer ??= StringBuffer(originalValue.substring(0, charIndex));
         buffer.write(escapedValue);
+      } else if (codeUnit < 32) {
+        buffer ??= StringBuffer(originalValue.substring(0, charIndex));
+        buffer.write("\\u${codeUnit.toRadixString(16).padLeft(4, '0')}");
       } else {
         buffer?.writeCharCode(codeUnit);
       }
@@ -232,6 +241,47 @@ class Json5 with TypedAccessorMixin {
   }
 
   //--------------------------------------------------------------------------------------------------
+  /// Returns the list of [bool] values for [key].
+  List<bool> asBoolList(final dynamic key) {
+    List<bool> resultList;
+    final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
+    if (dynamicList == null) {
+      return emptyBoolList;
+    }
+    resultList = [];
+    for (final Object? listItem in dynamicList) {
+      if (listItem is bool) {
+        resultList.add(listItem);
+      } else if (listItem != null) {
+        resultList.add(listItem.toString().toBool());
+      }
+    }
+    return resultList;
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  /// Returns the list of [DateTime] values for [key].
+  List<DateTime> asDateTimeList(final dynamic key) {
+    List<DateTime> resultList;
+    final List<dynamic>? dynamicList = _keyToValueMap[_getKey(key)] as List<dynamic>?;
+    if (dynamicList == null) {
+      return emptyDateTimeList;
+    }
+    resultList = [];
+    for (final Object? listItem in dynamicList) {
+      if (listItem is DateTime) {
+        resultList.add(listItem);
+      } else if (listItem is num) {
+        resultList.add(DateTime.fromMillisecondsSinceEpoch(listItem.toInt()));
+      } else if (listItem != null) {
+        final DateTime? dt = listItem.toString().toDateTime();
+        if (dt != null) resultList.add(dt);
+      }
+    }
+    return resultList;
+  }
+
+  //--------------------------------------------------------------------------------------------------
   /// Returns the list of [double] values for [key].
   List<double> asDoubleList(final dynamic key) {
     List<double> resultList;
@@ -321,6 +371,13 @@ class Json5 with TypedAccessorMixin {
   @override
   @internal
   dynamic asType(dynamic key) => _keyToValueMap[_getKey(key)];
+
+  //--------------------------------------------------------------------------------------------------
+  /// Clears all entries from this Json5 object.
+  void clear() {
+    assert(!readOnly, "Cannot clear a read-only JSON");
+    _keyToValueMap.clear();
+  }
 
   //--------------------------------------------------------------------------------------------------
   void _convertList(List<dynamic> list) {
@@ -628,6 +685,13 @@ class Json5 with TypedAccessorMixin {
   int get length => _keyToValueMap.length;
 
   //--------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its value.
+  dynamic remove(dynamic key) {
+    assert(!readOnly, "Cannot remove entries from a read-only JSON");
+    return _keyToValueMap.remove(_getKey(key));
+  }
+
+  //--------------------------------------------------------------------------------------------------
   /// Sets the value for [key] to [value].
   void set(dynamic key, final dynamic value) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
@@ -822,6 +886,10 @@ class Json5 with TypedAccessorMixin {
     buffer.write("}");
     return buffer.toString();
   }
+
+  //--------------------------------------------------------------------------------------------------
+  /// Converts this Json5 object to a standard [Map].
+  Map<String, dynamic> toMap() => Map.of(_keyToValueMap);
 
   //--------------------------------------------------------------------------------------------------
   @override
