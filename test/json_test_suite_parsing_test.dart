@@ -67,15 +67,15 @@ void main() {
   };
 
   group("JsonTestSuite Parsing", () {
-    Directory testParsingDir = Directory("test/JsonTestSuite/test_parsing");
+    Directory testParsingDir = Directory("test/json_test_suite/test_parsing");
     if (!testParsingDir.existsSync()) {
       // Fallback in case the IDE sets the working directory to the test folder
-      testParsingDir = Directory("JsonTestSuite/test_parsing");
+      testParsingDir = Directory("json_test_suite/test_parsing");
     }
 
     if (!testParsingDir.existsSync()) {
       test("Directory not found", () {
-        fail("The directory JsonTestSuite/test_parsing was not found.");
+        fail("The directory json_test_suite/test_parsing was not found.");
       });
       return;
     }

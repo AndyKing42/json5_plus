@@ -1,6 +1,6 @@
 name: json5_plus
 description: A JSON5 parser with type-safe accessors.
-version: 0.0.1
+version: 0.0.2
 repository: https://github.com/AndyKing42/json5_plus
 
 environment:
@@ -9,8 +9,8 @@ environment:
 dependencies:
   ffi: ^2.2.0
   meta: ^1.18.2
-  win32: ^5.10.0
+  win32: ^6.2.0
 
 dev_dependencies:
-  lints: 6.1.0
-  test: 1.31.1
+  lints: ^6.1.0
+  test: ^1.31.1

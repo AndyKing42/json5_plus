@@ -1,3 +1,9 @@
+## 0.0.2
+
+* Fixed folder naming conventions in the test suite to follow Dart snake_case guidelines.
+* Updated `win32` dependency constraints to support version 6.0.0.
+* Improved internal file structure for better package scoring.
+
 ## 0.0.1
 
 * Initial release of json5_plus.

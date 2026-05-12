@@ -21,15 +21,15 @@ void main() {
   };
 
   group("Json5TestSuite Parsing", () {
-    Directory testDir = Directory("test/Json5TestSuite");
+    Directory testDir = Directory("test/json5_test_suite");
     if (!testDir.existsSync()) {
       // Fallback in case the IDE sets the working directory to the test folder
-      testDir = Directory("Json5TestSuite");
+      testDir = Directory("json5_test_suite");
     }
 
     if (!testDir.existsSync()) {
       test("Directory not found", () {
-        fail("The directory Json5TestSuite was not found.");
+        fail("The directory json5_test_suite was not found.");
       });
       return;
     }
