@@ -1,3 +1,6 @@
+## 0.0.4
+ * Add a longer package description in pubspec.yaml.
+
 ## 0.0.3
  * Fix the CHANGELOG.md instructions.
  * Ensure that all test filenames are lowercase.
