@@ -35,6 +35,15 @@ void main() {
     }
 
     final List<FileSystemEntity> entityList = testDir.listSync(recursive: true);
+    for (final FileSystemEntity entity in entityList) {
+      final String name = entity.uri.pathSegments.last;
+      if (name != name.toLowerCase()) {
+        test("Lowercase naming check", () {
+          fail("File or directory contains uppercase letters: ${entity.path}");
+        });
+        return;
+      }
+    }
     final List<File> fileList = [];
     for (final FileSystemEntity entity in entityList) {
       if (entity is File) {

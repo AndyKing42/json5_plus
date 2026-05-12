@@ -1,3 +1,7 @@
+## 0.0.3
+ * Fix the CHANGELOG.md instructions.
+ * Ensure that all test filenames are lowercase.
+
 ## 0.0.2
 
 * Fixed folder naming conventions in the test suite to follow Dart snake_case guidelines.

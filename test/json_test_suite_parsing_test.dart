@@ -33,7 +33,7 @@ void main() {
     "n_number_.2e-3.json",
     "n_number_infinity.json",
     "n_number_plus_infinity.json",
-    "n_number_NaN.json",
+    "n_number_nan.json",
     "n_number_neg_real_without_int_part.json", // -.1
     "n_number_real_without_fractional_part.json", // 1.
     "n_number_starting_with_dot.json", // .1
@@ -56,10 +56,10 @@ void main() {
     "n_string_escaped_ctrl_char_tab.json",
     "n_string_escaped_emoji.json",
     "n_string_invalid_backslash_esc.json",
-    "n_string_unicode_CapitalU.json",
+    "n_string_unicode_capitalu.json",
     // --- JSON5: Valid Numbers often rejected by strict JSON ---
     "n_number_-2..json", // Actually valid JSON5 (trailing decimal)
-    "n_number_-NaN.json", // Actually valid JSON5 (negative NaN)
+    "n_number_-nan.json", // Actually valid JSON5 (negative NaN)
     "n_number_0.e1.json", // Actually valid JSON5 (decimal then exponent)
     "n_number_2.e-3.json",
     "n_number_2.e3.json",
@@ -80,6 +80,15 @@ void main() {
       return;
     }
     final List<FileSystemEntity> entityList = testParsingDir.listSync();
+    for (final FileSystemEntity entity in entityList) {
+      final String name = entity.uri.pathSegments.last;
+      if (name != name.toLowerCase()) {
+        test("Lowercase naming check", () {
+          fail("File or directory contains uppercase letters: ${entity.path}");
+        });
+        return;
+      }
+    }
     final List<File> fileList = [];
     for (final FileSystemEntity entity in entityList) {
       if (entity is File && entity.path.endsWith(".json")) {
