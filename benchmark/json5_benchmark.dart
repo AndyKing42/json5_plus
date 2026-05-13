@@ -1,9 +1,9 @@
 //
 // ignore_for_file: avoid_positional_boolean_parameters, constant_identifier_names, non_constant_identifier_names, avoid_print
-import "dart:convert";
-import "dart:ffi";
-import "dart:io";
-import "package:json5_plus/json5_plus.dart";
+import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
+import 'package:json5_plus/json5_plus.dart';
 
 // Define the Windows Kernel32 library
 final kernel32 = DynamicLibrary.open('kernel32.dll');

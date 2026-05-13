@@ -1,5 +1,5 @@
-import "package:json5_plus/json5_plus.dart";
-import "package:test/test.dart";
+import 'package:json5_plus/json5_plus.dart';
+import 'package:test/test.dart';
 
 void main() {
   void testJson(String jsonText, dynamic expectedValue) {

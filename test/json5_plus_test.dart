@@ -1,6 +1,6 @@
-import "dart:io";
-import "package:json5_plus/json5_plus.dart";
-import "package:test/test.dart";
+import 'dart:io';
+import 'package:json5_plus/json5_plus.dart';
+import 'package:test/test.dart';
 
 void main() {
   group("Json5 Parser and Stringifier Black-Box Tests", () {

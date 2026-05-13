@@ -1,7 +1,7 @@
-import "dart:io";
+import 'dart:io';
 
-import "package:json5_plus/json5_plus.dart";
-import "package:test/test.dart";
+import 'package:json5_plus/json5_plus.dart';
+import 'package:test/test.dart';
 
 void main() {
   final Set<String> validJson5Exceptions = {

@@ -1,7 +1,7 @@
-import "dart:io";
+import 'dart:io';
 
-import "package:json5_plus/json5_plus.dart";
-import "package:test/test.dart";
+import 'package:json5_plus/json5_plus.dart';
+import 'package:test/test.dart';
 
 void main() {
   // Many tests in the standard JSON Test Suite that are marked as "must reject" (n_*)
