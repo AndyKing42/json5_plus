@@ -52,7 +52,7 @@ extension Json5StringExtension on String? {
 
   //--------------------------------------------------------------------------------------------------
   /// Returns true if the string is not: null; empty; or entirely whitespace.
-  Future<bool> get isNotBlank async => !isBlank;
+  bool get isNotBlank => !isBlank;
 
   //--------------------------------------------------------------------------------------------------
   /// Converts the string to a boolan value
