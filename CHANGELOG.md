@@ -1,3 +1,6 @@
+## 0.1.0
+ * Bump the version to 0.1.0.
+
 ## 0.0.5
  * Added `Set` accessors (e.g., `asStringSet`, `asIntSet`) for typed JSON extraction.
  * Improved `List` and `Set` accessors to gracefully wrap single scalar values into a collection instead of overwriting them.
