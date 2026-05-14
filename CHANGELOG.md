@@ -1,3 +1,9 @@
+## 0.0.5
+ * Added `Set` accessors (e.g., `asStringSet`, `asIntSet`) for typed JSON extraction.
+ * Improved `List` and `Set` accessors to gracefully wrap single scalar values into a collection instead of overwriting them.
+ * Improved `List` and `Set` accessors to return live, mutable collections for missing keys. These empty collections use an ephemeral key system so they don't bloat the serialized JSON output unless items are actually added to them.
+ * Optimized internal collection parsing and conversion logic.
+
 ## 0.0.4
  * Add a longer package description in pubspec.yaml.
 
