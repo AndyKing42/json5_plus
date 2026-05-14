@@ -240,6 +240,48 @@ line2",
       expect(json.asIntList("missing"), isEmpty);
     });
 
+    test("Set accessors return sets with proper types and unique values", () {
+      json["intDupList"] = [1, 2, 2, 3];
+      json["stringDupList"] = ["a", "b", "a"];
+
+      expect(json.asIntSet("intDupList"), {1, 2, 3});
+      expect(json.asStringSet("stringDupList"), {"a", "b"});
+
+      // Defaults to empty sets
+      expect(json.asIntSet("missing"), isEmpty);
+    });
+
+    test("Collection accessors gracefully wrap single scalar values", () {
+      expect(json.asIntList("intVal"), [42]);
+      expect(json.asStringSet("stringVal"), {"hello"});
+
+      // Verify the JSON object was updated to hold the wrapped collection
+      expect(json.toJsonString(json5: false), contains('"intVal":[42]'));
+    });
+
+    test("Collection accessors return live ephemeral collections for missing keys", () {
+      final localJson = Json5();
+
+      final List<int> missingList = localJson.asIntList("ephemeralList");
+      expect(localJson.isEmpty, isTrue);
+      expect(localJson.keys.contains("ephemeralList"), isFalse);
+      expect(localJson.toJsonString(), "{}");
+      expect(localJson.toMap().containsKey("ephemeralList"), isFalse);
+
+      missingList.add(100);
+
+      expect(localJson.isEmpty, isFalse);
+      expect(localJson.keys.contains("ephemeralList"), isTrue);
+      expect(localJson.toJsonString(), '{ephemeralList:[100],}');
+      expect(localJson.toMap().containsKey("ephemeralList"), isTrue);
+
+      final Set<String> missingSet = localJson.asStringSet("ephemeralSet");
+      expect(localJson.length, 1);
+      missingSet.add("test");
+      expect(localJson.length, 2);
+      expect(localJson.asStringSet("ephemeralSet"), {"test"});
+    });
+
     test("Json accessor returns nested object or empty Json5", () {
       final Json5 nested = json.asJson("obj");
       expect(nested.isNotEmpty, isTrue);
