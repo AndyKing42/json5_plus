@@ -57,7 +57,7 @@ line2",
       json["number"] = 123;
 
       final String json5Out = json.toJsonString();
-      expect(json5Out, '{key:"value",number:123,}');
+      expect(json5Out, '{key:"value",number:123}');
 
       final String jsonOut = json.toJsonString(json5: false);
       expect(jsonOut, '{"key":"value","number":123}');
@@ -272,7 +272,7 @@ line2",
 
       expect(localJson.isEmpty, isFalse);
       expect(localJson.keys.contains("ephemeralList"), isTrue);
-      expect(localJson.toJsonString(), '{ephemeralList:[100],}');
+      expect(localJson.toJsonString(), '{ephemeralList:[100]}');
       expect(localJson.toMap().containsKey("ephemeralList"), isTrue);
 
       final Set<String> missingSet = localJson.asStringSet("ephemeralSet");
