@@ -669,9 +669,7 @@ class Json5 with TypedAccessorMixin {
             ..write(prefix)
             ..write(value);
       }
-      if (json5 || i < length - 1) {
-        buffer.write(",");
-      }
+      buffer.write(json5 || i < length - 1 ? "," : "");
       _writeComments(
         buffer: buffer,
         container: container,
@@ -751,9 +749,7 @@ class Json5 with TypedAccessorMixin {
         registry: registry,
         value: jsonMap[key],
       );
-      if (json5 || i < sortedKeyList.length - 1) {
-        buffer.write(",");
-      }
+      buffer.write(json5 || i < sortedKeyList.length - 1 ? "," : "");
       _writeComments(
         buffer: buffer,
         container: container,
@@ -1049,9 +1045,6 @@ class Json5 with TypedAccessorMixin {
         ..write(_valueToString(value, json5: json5));
       firstEntry = false;
     }
-    if (!firstEntry && json5) {
-      buffer.write(",");
-    }
     buffer.write("}");
     return buffer.toString();
   }
@@ -1086,10 +1079,9 @@ class Json5 with TypedAccessorMixin {
         final StringBuffer buffer = StringBuffer("[");
         bool first = true;
         for (final dynamic item in iterableValue) {
-          if (!first) {
-            buffer.write(",");
-          }
-          buffer.write(_valueToString(item, json5: json5));
+          buffer
+            ..write(first ? "" : ",")
+            ..write(_valueToString(item, json5: json5));
           first = false;
         }
         buffer.write("]");
@@ -1099,10 +1091,9 @@ class Json5 with TypedAccessorMixin {
       case null:
         return "null";
       default:
-        if (json5Util.isEnum(value)) {
-          return '"${value.toString().split(".").last}"';
-        }
-        return '"${_escapeString(value.toString())}"';
+        return json5Util.isEnum(value)
+            ? '"${value.toString().split(".").last}"'
+            : '"${_escapeString(value.toString())}"';
     }
   }
 
