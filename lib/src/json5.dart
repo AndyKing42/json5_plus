@@ -282,93 +282,62 @@ class Json5 with TypedAccessorMixin {
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of [bool] values for [key].
-  List<bool> asBoolList(final dynamic key) => _getCollection<List<bool>>(
-    key,
-    emptyBoolList,
-    () => <bool>[],
-    (source, result) => _convertBools(source, result.add),
-  );
+  List<bool> asBoolList(final dynamic key) =>
+      _getList<bool>(key, emptyBoolList, (source, result) => _convertBools(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of [bool] values for [key].
-  Set<bool> asBoolSet(final dynamic key) => _getCollection<Set<bool>>(
-    key,
-    emptyBoolSet,
-    () => <bool>{},
-    (source, result) => _convertBools(source, result.add),
-  );
+  Set<bool> asBoolSet(final dynamic key) =>
+      _getSet<bool>(key, emptyBoolSet, (source, result) => _convertBools(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of [DateTime] values for [key].
-  List<DateTime> asDateTimeList(final dynamic key) => _getCollection<List<DateTime>>(
+  List<DateTime> asDateTimeList(final dynamic key) => _getList<DateTime>(
     key,
     emptyDateTimeList,
-    () => <DateTime>[],
     (source, result) => _convertDateTimes(source, result.add),
   );
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of [DateTime] values for [key].
-  Set<DateTime> asDateTimeSet(final dynamic key) => _getCollection<Set<DateTime>>(
+  Set<DateTime> asDateTimeSet(final dynamic key) => _getSet<DateTime>(
     key,
     emptyDateTimeSet,
-    () => <DateTime>{},
     (source, result) => _convertDateTimes(source, result.add),
   );
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of [double] values for [key].
-  List<double> asDoubleList(final dynamic key) => _getCollection<List<double>>(
+  List<double> asDoubleList(final dynamic key) => _getList<double>(
     key,
     emptyDoubleList,
-    () => <double>[],
     (source, result) => _convertDoubles(source, result.add),
   );
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of [double] values for [key].
-  Set<double> asDoubleSet(final dynamic key) => _getCollection<Set<double>>(
-    key,
-    emptyDoubleSet,
-    () => <double>{},
-    (source, result) => _convertDoubles(source, result.add),
-  );
+  Set<double> asDoubleSet(final dynamic key) =>
+      _getSet<double>(key, emptyDoubleSet, (source, result) => _convertDoubles(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of values for [key].
-  List<dynamic> asDynamicList(final dynamic key) => _getCollection<List<dynamic>>(
-    key,
-    emptyDynamicList,
-    () => <dynamic>[],
-    (source, result) => result.addAll(source),
-  );
+  List<dynamic> asDynamicList(final dynamic key) =>
+      _getList<dynamic>(key, emptyDynamicList, (source, result) => result.addAll(source));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of values for [key].
-  Set<dynamic> asDynamicSet(final dynamic key) => _getCollection<Set<dynamic>>(
-    key,
-    emptyDynamicSet,
-    () => <dynamic>{},
-    (source, result) => result.addAll(source),
-  );
+  Set<dynamic> asDynamicSet(final dynamic key) =>
+      _getSet<dynamic>(key, emptyDynamicSet, (source, result) => result.addAll(source));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of [int] values for [key].
-  List<int> asIntList(final dynamic key) => _getCollection<List<int>>(
-    key,
-    emptyIntList,
-    () => <int>[],
-    (source, result) => _convertInts(source, result.add),
-  );
+  List<int> asIntList(final dynamic key) =>
+      _getList<int>(key, emptyIntList, (source, result) => _convertInts(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of [int] values for [key].
-  Set<int> asIntSet(final dynamic key) => _getCollection<Set<int>>(
-    key,
-    emptyIntSet,
-    () => <int>{},
-    (source, result) => _convertInts(source, result.add),
-  );
+  Set<int> asIntSet(final dynamic key) =>
+      _getSet<int>(key, emptyIntSet, (source, result) => _convertInts(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the [Json5] object for [key].
@@ -376,39 +345,26 @@ class Json5 with TypedAccessorMixin {
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of [Json5] values for [key].
-  List<Json5> asJsonList(final dynamic key) => _getCollection<List<Json5>>(
-    key,
-    emptyJsonList,
-    () => <Json5>[],
-    (source, result) => _convertJson5s(source, result.add),
-  );
+  List<Json5> asJsonList(final dynamic key) =>
+      _getList<Json5>(key, emptyJsonList, (source, result) => _convertJson5s(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of [Json5] values for [key].
-  Set<Json5> asJsonSet(final dynamic key) => _getCollection<Set<Json5>>(
-    key,
-    emptyJsonSet,
-    () => <Json5>{},
-    (source, result) => _convertJson5s(source, result.add),
-  );
+  Set<Json5> asJsonSet(final dynamic key) =>
+      _getSet<Json5>(key, emptyJsonSet, (source, result) => _convertJson5s(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the list of [String] values for [key].
-  List<String> asStringList(final dynamic key) => _getCollection<List<String>>(
+  List<String> asStringList(final dynamic key) => _getList<String>(
     key,
     emptyStringList,
-    () => <String>[],
     (source, result) => _convertStrings(source, result.add),
   );
 
   //--------------------------------------------------------------------------------------------------
   /// Returns the set of [String] values for [key].
-  Set<String> asStringSet(final dynamic key) => _getCollection<Set<String>>(
-    key,
-    emptyStringSet,
-    () => <String>{},
-    (source, result) => _convertStrings(source, result.add),
-  );
+  Set<String> asStringSet(final dynamic key) =>
+      _getSet<String>(key, emptyStringSet, (source, result) => _convertStrings(source, result.add));
 
   //--------------------------------------------------------------------------------------------------
   @override
@@ -786,36 +742,6 @@ class Json5 with TypedAccessorMixin {
   }
 
   //--------------------------------------------------------------------------------------------------
-  TCollection _getCollection<TCollection>(
-    dynamic key,
-    TCollection emptyCollection,
-    TCollection Function() createEmpty,
-    void Function(Iterable<dynamic> source, TCollection result) converter,
-  ) {
-    final String localKey = _getKey(key);
-    final dynamic value = _keyToValueMap[localKey];
-    if (value is TCollection) {
-      return value;
-    }
-    if (value != null) {
-      final Iterable<dynamic> source = value is Iterable<dynamic> ? value : <dynamic>[value];
-      final TCollection resultCollection = createEmpty();
-      converter(source, resultCollection);
-      if (!readOnly) {
-        _keyToValueMap[localKey] = resultCollection;
-      }
-      return resultCollection;
-    }
-    if (!readOnly) {
-      final TCollection resultCollection = createEmpty();
-      _keyToValueMap[localKey] = resultCollection;
-      _ephemeralKeys.add(localKey);
-      return resultCollection;
-    }
-    return emptyCollection;
-  }
-
-  //--------------------------------------------------------------------------------------------------
   /// Returns the key/value entries for this Json5 object.
   Iterable<MapEntry<String, dynamic>> get entries => _ephemeralKeys.isEmpty
       ? _keyToValueMap.entries
@@ -854,6 +780,68 @@ class Json5 with TypedAccessorMixin {
   //--------------------------------------------------------------------------------------------------
   /// Returns the number of key/value pairs in this Json5 object.
   int get length => keys.length;
+
+  //--------------------------------------------------------------------------------------------------
+  List<ElementType> _getList<ElementType>(
+    dynamic key,
+    List<ElementType> emptyCollection,
+    void Function(Iterable<dynamic> source, List<ElementType> result) converter,
+  ) {
+    List<ElementType> result;
+    final String localKey = _getKey(key);
+    final dynamic value = _keyToValueMap[localKey];
+    if (value is List<ElementType>) {
+      return readOnly ? UnmodifiableListView<ElementType>(value) : value;
+    }
+    if (value != null) {
+      final Iterable<dynamic> source = value is Iterable<dynamic> ? value : <dynamic>[value];
+      result = <ElementType>[];
+      converter(source, result);
+      if (!readOnly) {
+        _keyToValueMap[localKey] = result;
+        return result;
+      }
+      return UnmodifiableListView<ElementType>(result);
+    }
+    if (!readOnly) {
+      result = <ElementType>[];
+      _keyToValueMap[localKey] = result;
+      _ephemeralKeys.add(localKey);
+      return result;
+    }
+    return emptyCollection;
+  }
+
+  //--------------------------------------------------------------------------------------------------
+  Set<ElementType> _getSet<ElementType>(
+    dynamic key,
+    Set<ElementType> emptyCollection,
+    void Function(Iterable<dynamic> source, Set<ElementType> result) converter,
+  ) {
+    Set<ElementType> result;
+    final String localKey = _getKey(key);
+    final dynamic value = _keyToValueMap[localKey];
+    if (value is Set<ElementType>) {
+      return readOnly ? UnmodifiableSetView<ElementType>(value) : value;
+    }
+    if (value != null) {
+      final Iterable<dynamic> source = value is Iterable<dynamic> ? value : <dynamic>[value];
+      result = <ElementType>{};
+      converter(source, result);
+      if (!readOnly) {
+        _keyToValueMap[localKey] = result;
+        return result;
+      }
+      return UnmodifiableSetView<ElementType>(result);
+    }
+    if (!readOnly) {
+      result = <ElementType>{};
+      _keyToValueMap[localKey] = result;
+      _ephemeralKeys.add(localKey);
+      return result;
+    }
+    return emptyCollection;
+  }
 
   //--------------------------------------------------------------------------------------------------
   /// Removes the entry for [key] and returns its value.
