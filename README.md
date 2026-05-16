@@ -18,7 +18,7 @@ Add the following to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  json5_plus: ^0.1.0
+  json5_plus: ^0.1.1
 ```
 
 ## Usage

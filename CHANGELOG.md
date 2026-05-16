@@ -1,3 +1,6 @@
+## 0.1.1
+ * For read-only Json5 objects always return unmodifiable lists or sets.
+
 ## 0.1.0
  * Bump the version to 0.1.0.
 
