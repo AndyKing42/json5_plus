@@ -5,7 +5,7 @@ import 'json5_comment_registry.dart';
 
 @internal
 class Json5Parser {
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   static final RegExp _paramsRegExp = RegExp(r"\$\{params\.([^}]+)\}");
 
   final bool _caseSensitiveKeys;
@@ -20,7 +20,7 @@ class Json5Parser {
   final bool _readOnly;
   final bool _useKeyCache;
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Decodes a JSON5 string.
   static Json5 decode({
     bool caseSensitiveKeys = false,
@@ -34,7 +34,7 @@ class Json5Parser {
     readOnly: readOnly,
   )._parse();
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Decodes any valid JSON5 string (Object, Array, Primitive).
   static dynamic decodeAny({
     bool caseSensitiveKeys = false,
@@ -48,7 +48,7 @@ class Json5Parser {
     readOnly: readOnly,
   )._parseAny();
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Parses a string containing multiple JSON5 objects and returns them as a list,
   /// along with any trailing unprocessed text.
   static ({List<Json5> jsonList, String unprocessed}) decodeMultiple({
@@ -87,7 +87,7 @@ class Json5Parser {
     return (jsonList: jsonList, unprocessed: jsonString.substring(parser._pos));
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   Json5Parser._({
     required bool caseSensitiveKeys,
     required String jsonString,
@@ -104,10 +104,10 @@ class Json5Parser {
        _readOnly = readOnly,
        _useKeyCache = jsonString.length > 16_384;
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   Never _error(String message) => throw FormatException("$message at line $_lineNumber, pos $_pos");
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   Json5 _parse() {
     Json5 result;
     if (_skipWhitespace()) {
@@ -135,7 +135,7 @@ class Json5Parser {
     return result;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   dynamic _parseAny() {
     if (_skipWhitespace()) {
       _skipWhitespaceAndRegisterComments(
@@ -169,7 +169,7 @@ class Json5Parser {
     return result;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   List<dynamic> _parseArray() {
     final List<dynamic> valueList = [];
     ++_pos; // skip "["
@@ -225,7 +225,7 @@ class Json5Parser {
     return valueList;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   dynamic _parseFunctionCall(
     String functionName, {
     required ECommentLocation commentLocation,
@@ -322,7 +322,7 @@ class Json5Parser {
     _error("Unknown function call: $functionName");
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   String _parseKey() {
     String result;
     int codeUnit = _jsonString.codeUnitAt(_pos);
@@ -352,7 +352,7 @@ class Json5Parser {
     return result;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   Json5 _parseObject() {
     final Json5 result = Json5(caseSensitiveKeys: _caseSensitiveKeys, readOnly: _readOnly);
     ++_pos; // skip "{"
@@ -432,7 +432,7 @@ class Json5Parser {
     return result;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   @pragma('vm:prefer-inline')
   bool _isPrimitiveBoundary(int codeUnit) =>
       codeUnit == 44 || // ,
@@ -444,7 +444,7 @@ class Json5Parser {
       codeUnit == 58 || // :
       codeUnit == 40; // (
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   dynamic _parsePrimitive({
     required ECommentLocation commentLocation,
     required Object container,
@@ -595,7 +595,7 @@ class Json5Parser {
     return parsed;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   String _parseString(int quote) {
     final int start = ++_pos;
     int i = start;
@@ -615,7 +615,7 @@ class Json5Parser {
     _error("Unterminated string");
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   String _parseStringWithEscapes(int quote) {
     final StringBuffer buffer = StringBuffer();
     int i = _pos;
@@ -682,7 +682,7 @@ class Json5Parser {
     return buffer.toString();
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   dynamic _parseValue({
     required ECommentLocation commentLocation,
     required Object container,
@@ -715,7 +715,7 @@ class Json5Parser {
     _error('Unexpected character "${String.fromCharCode(codeUnit)}",');
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   dynamic _resolveParam(String key) {
     if (_params == null) {
       return null;
@@ -734,7 +734,7 @@ class Json5Parser {
     return current;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   dynamic _resolveStringOrParam(String stringValue) {
     if (_params == null ||
         stringValue.length < 4 ||
@@ -758,7 +758,7 @@ class Json5Parser {
     });
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   @pragma('vm:prefer-inline')
   bool _skipWhitespace() {
     _newlineFoundInWhitespace = false;
@@ -787,7 +787,7 @@ class Json5Parser {
     return false;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   void _skipWhitespaceAndRegisterComments({
     required ECommentLocation commentLocation,
     required Object container,
@@ -856,5 +856,5 @@ class Json5Parser {
     }
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
 }

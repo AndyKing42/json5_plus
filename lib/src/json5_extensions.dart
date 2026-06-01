@@ -1,6 +1,6 @@
 /// Extension methods for [DateTime].
 extension Json5DateTimeExtension on DateTime? {
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Returns the ISO 8601 representation of the date/time.
   String formatIso8601() {
     ArgumentError.checkNotNull(this, "DateTime cannot be null");
@@ -18,13 +18,13 @@ extension Json5DateTimeExtension on DateTime? {
         "Z";
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
 }
 
 //==================================================================================================
 /// Extension methods for [String].
 extension Json5StringExtension on String? {
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Returns the result of comparing this tring to another string, ignoring case.
   int compareToIgnoreCase(String? other) {
     final int len = this?.length ?? 0;
@@ -46,26 +46,26 @@ extension Json5StringExtension on String? {
     return len - otherLen;
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Returns true if the string is null, empty, or entirely whitespace.
   bool get isBlank => this == null || this!.isEmpty || this!.trim().isEmpty;
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Returns true if the string is not: null; empty; or entirely whitespace.
   bool get isNotBlank => !isBlank;
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Converts the string to a boolan value
   bool toBool({final bool defaultValue = false}) => isBlank
       ? defaultValue
       : this![0] == "y" || this![0] == "Y" || this!.toLowerCase() == "true" || this! == "1";
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Converts the string to a [DateTime].
   DateTime? toDateTime([final DateTime? defaultValue]) =>
       _toDateTime(defaultValue: defaultValue, utc: false);
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   DateTime? _toDateTime({DateTime? defaultValue, required bool utc}) {
     if (isBlank) {
       return defaultValue;
@@ -116,12 +116,12 @@ extension Json5StringExtension on String? {
     }
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Converts the string to a UTC [DateTime].
   DateTime? toDateTimeUtc([final DateTime? defaultValue]) =>
       _toDateTime(defaultValue: defaultValue, utc: true);
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Converts the string to a [double].
   double toDouble([final double defaultValue = 0]) {
     try {
@@ -131,7 +131,7 @@ extension Json5StringExtension on String? {
     }
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
   /// Converts the string to an integer.
   int toInt([final int defaultValue = 0]) {
     try {
@@ -141,5 +141,5 @@ extension Json5StringExtension on String? {
     }
   }
 
-  //--------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------
 }
