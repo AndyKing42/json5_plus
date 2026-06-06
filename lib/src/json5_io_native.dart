@@ -20,7 +20,7 @@ Json5 fromFile({
   );
 }
 
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------
 /// Writes the formatted JSON5 representation of [json] to the file at [path].
 void toFile(Json5 json, String path, {bool includeComments = true, bool json5 = true}) => io.File(
   path,
