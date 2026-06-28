@@ -6,24 +6,24 @@ import 'dart:io';
 import 'package:json5_plus/json5_plus.dart';
 
 // Define the Windows Kernel32 library
-final kernel32 = DynamicLibrary.open('kernel32.dll');
+final kernel32 = DynamicLibrary.open("kernel32.dll");
 
 typedef SetPriorityClassNative = Int32 Function(IntPtr hProcess, Uint32 dwPriorityClass);
 typedef SetPriorityClassDart = int Function(int hProcess, int dwPriorityClass);
 final SetPriorityClassDart SetPriorityClass = kernel32
-    .lookupFunction<SetPriorityClassNative, SetPriorityClassDart>('SetPriorityClass');
+    .lookupFunction<SetPriorityClassNative, SetPriorityClassDart>("SetPriorityClass");
 
 typedef GetCurrentProcessNative = IntPtr Function();
 typedef GetCurrentProcessDart = int Function();
 final GetCurrentProcessDart GetCurrentProcess = kernel32
-    .lookupFunction<GetCurrentProcessNative, GetCurrentProcessDart>('GetCurrentProcess');
+    .lookupFunction<GetCurrentProcessNative, GetCurrentProcessDart>("GetCurrentProcess");
 
 typedef SetProcessAffinityMaskNative =
     Int32 Function(IntPtr hProcess, IntPtr dwProcessAffinityMask);
 typedef SetProcessAffinityMaskDart = int Function(int hProcess, int dwProcessAffinityMask);
 final SetProcessAffinityMaskDart SetProcessAffinityMask = kernel32
     .lookupFunction<SetProcessAffinityMaskNative, SetProcessAffinityMaskDart>(
-      'SetProcessAffinityMask',
+      "SetProcessAffinityMask",
     );
 
 const HIGH_PRIORITY_CLASS = 0x00000080;
@@ -39,9 +39,11 @@ void main(List<String> args) {
   const int fileIterations = 10_000;
 
   // Lock process to High Priority and Core 1 to stabilize Jitter
-  final int handle = GetCurrentProcess();
-  SetPriorityClass(handle, HIGH_PRIORITY_CLASS);
-  SetProcessAffinityMask(handle, 2);
+  if (Platform.isWindows) {
+    final int handle = GetCurrentProcess();
+    SetPriorityClass(handle, HIGH_PRIORITY_CLASS);
+    SetProcessAffinityMask(handle, 2);
+  }
 
   // Parse total runs from command line; default to 1
   int totalRuns = 1;
