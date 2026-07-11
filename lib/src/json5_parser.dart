@@ -452,42 +452,16 @@ class Json5Parser {
   }) {
     final int start = _pos;
     final int firstChar = _jsonString.codeUnitAt(_pos);
-    if (firstChar == 116 /* t */ && _jsonString.startsWith("true", _pos)) {
-      final int nextPos = _pos + 4;
-      if (nextPos >= _jsonStringLength || _isPrimitiveBoundary(_jsonString.codeUnitAt(nextPos))) {
-        _pos = nextPos;
-        return true;
-      }
-    } else if (firstChar == 102 /* f */ && _jsonString.startsWith("false", _pos)) {
-      final int nextPos = _pos + 5;
-      if (nextPos >= _jsonStringLength || _isPrimitiveBoundary(_jsonString.codeUnitAt(nextPos))) {
-        _pos = nextPos;
-        return false;
-      }
-    } else if (firstChar == 110 /* n */ && _jsonString.startsWith("null", _pos)) {
-      final int nextPos = _pos + 4;
-      if (nextPos >= _jsonStringLength || _isPrimitiveBoundary(_jsonString.codeUnitAt(nextPos))) {
-        _pos = nextPos;
-        return null;
-      }
-    } else if (firstChar == 36 /* $ */ && _jsonString.startsWith(r"$include", _pos)) {
-      final int savedPos = _pos;
-      final int savedLine = _lineNumber;
-      final bool savedNewline = _newlineFoundInWhitespace;
-      _pos += 8;
-      _skipWhitespace();
-      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 40 /* ( */ ) {
-        return _parseFunctionCall(
-          r"$include",
-          commentLocation: commentLocation,
-          container: container,
-          index: index,
-          startPos: start,
-        );
-      }
-      _pos = savedPos;
-      _lineNumber = savedLine;
-      _newlineFoundInWhitespace = savedNewline;
+    final ({bool matched, dynamic value}) result =
+        _parsePrimitiveBooleansNullOrInclude(
+      commentLocation: commentLocation,
+      container: container,
+      firstChar: firstChar,
+      index: index,
+      start: start,
+    );
+    if (result.matched) {
+      return result.value;
     }
     bool isSimpleNumber = firstChar >= 48 && firstChar <= 57;
     bool hasDigits = isSimpleNumber;
@@ -593,6 +567,55 @@ class Json5Parser {
       }
     }
     return parsed;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  ({bool matched, dynamic value}) _parsePrimitiveBooleansNullOrInclude({
+    required ECommentLocation commentLocation,
+    required Object container,
+    required int firstChar,
+    required int index,
+    required int start,
+  }) {
+    if (firstChar == 116 /* t */ && _jsonString.startsWith("true", _pos)) {
+      final int nextPos = _pos + 4;
+      if (nextPos >= _jsonStringLength || _isPrimitiveBoundary(_jsonString.codeUnitAt(nextPos))) {
+        _pos = nextPos;
+        return (matched: true, value: true);
+      }
+    } else if (firstChar == 102 /* f */ && _jsonString.startsWith("false", _pos)) {
+      final int nextPos = _pos + 5;
+      if (nextPos >= _jsonStringLength || _isPrimitiveBoundary(_jsonString.codeUnitAt(nextPos))) {
+        _pos = nextPos;
+        return (matched: true, value: false);
+      }
+    } else if (firstChar == 110 /* n */ && _jsonString.startsWith("null", _pos)) {
+      final int nextPos = _pos + 4;
+      if (nextPos >= _jsonStringLength || _isPrimitiveBoundary(_jsonString.codeUnitAt(nextPos))) {
+        _pos = nextPos;
+        return (matched: true, value: null);
+      }
+    } else if (firstChar == 36 /* $ */ && _jsonString.startsWith(r"$include", _pos)) {
+      final int savedPos = _pos;
+      final int savedLine = _lineNumber;
+      final bool savedNewline = _newlineFoundInWhitespace;
+      _pos += 8;
+      _skipWhitespace();
+      if (_pos < _jsonStringLength && _jsonString.codeUnitAt(_pos) == 40 /* ( */ ) {
+        final dynamic result = _parseFunctionCall(
+          r"$include",
+          commentLocation: commentLocation,
+          container: container,
+          index: index,
+          startPos: start,
+        );
+        return (matched: true, value: result);
+      }
+      _pos = savedPos;
+      _lineNumber = savedLine;
+      _newlineFoundInWhitespace = savedNewline;
+    }
+    return (matched: false, value: null);
   }
 
   //------------------------------------------------------------------------------------------------
