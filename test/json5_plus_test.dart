@@ -204,6 +204,35 @@ line2",
       expect(json.asString("missing", defaultValue: "default"), "default");
     });
 
+    test("Typed remove methods return converted value and delete key", () {
+      final Json5 removeTestJson = Json5.fromString("""
+      {
+        boolVal: "true",
+        intVal: "100",
+        doubleVal: "3.14",
+        stringVal: 50,
+        dateStr: "2023-01-01T12:00:00.000Z"
+      }
+      """);
+
+      expect(removeTestJson.removeBool("boolVal"), isTrue);
+      expect(removeTestJson.containsKey("boolVal"), isFalse);
+
+      expect(removeTestJson.removeInt("intVal"), 100);
+      expect(removeTestJson.containsKey("intVal"), isFalse);
+
+      expect(removeTestJson.removeDouble("doubleVal"), 3.14);
+      expect(removeTestJson.containsKey("doubleVal"), isFalse);
+
+      expect(removeTestJson.removeString("stringVal"), "50");
+      expect(removeTestJson.containsKey("stringVal"), isFalse);
+
+      expect(removeTestJson.removeDateTimeUtc("dateStr"), DateTime.utc(2023, 1, 1, 12));
+      expect(removeTestJson.containsKey("dateStr"), isFalse);
+
+      expect(removeTestJson.removeBool("missingKey", defaultValue: true), isTrue);
+    });
+
     test("Date time accessors convert various formats correctly", () {
       final expectedDate = DateTime.utc(2023, 1, 1, 12);
 

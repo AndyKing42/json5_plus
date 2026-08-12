@@ -1,3 +1,6 @@
+## 0.1.2
+ * Added typed remove methods (`removeBool`, `removeDateTime`, `removeDateTimeUtc`, `removeDouble`, `removeInt`, and `removeString`) to `Json5`.
+
 ## 0.1.1
  * For read-only Json5 objects always return unmodifiable lists or sets.
 

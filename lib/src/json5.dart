@@ -853,6 +853,54 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its boolean representation.
+  bool removeBool(dynamic key, {bool defaultValue = false}) {
+    final bool result = asBool(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its date/time representation.
+  DateTime removeDateTime(dynamic key, {DateTime? defaultValue}) {
+    final DateTime result = asDateTime(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its UTC date/time representation.
+  DateTime removeDateTimeUtc(final dynamic key, [final DateTime? defaultValue]) {
+    final DateTime result = asDateTimeUtc(key, defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its double representation.
+  double removeDouble(dynamic key, {double defaultValue = 0}) {
+    final double result = asDouble(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its integer representation.
+  int removeInt(dynamic key, {int defaultValue = 0}) {
+    final int result = asInt(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the entry for [key] and returns its string representation.
+  String removeString(dynamic key, {String defaultValue = ""}) {
+    final String result = asString(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Sets the value for [key] to [value].
   void set(dynamic key, final dynamic value) {
     assert(!readOnly, "Cannot add entries to a read-only JSON");
