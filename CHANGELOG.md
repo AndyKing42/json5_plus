@@ -1,3 +1,6 @@
+## 0.1.5
+ * Updated `meta` dependency version constraint to `^1.9.0` for full compatibility with Flutter SDK version pinning.
+
 ## 0.1.4
  * Made `Json5.escapeString` static method public for escaping control characters, quotes, and backslashes in JSON/JSON5 strings.
  * Added `Json5.fromDiffs` factory constructor to construct a new `Json5` object containing only key-value entries from `json2` that differ from or do not exist in `json1`.

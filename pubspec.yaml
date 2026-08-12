@@ -1,13 +1,13 @@
 name: json5_plus
 description: A high performance JSON5 parser with type-safe accessors, optional case-insensitive keys, and an "include" capability.
-version: 0.1.4
+version: 0.1.5
 repository: https://github.com/AndyKing42/json5_plus
 
 environment:
   sdk: '>=3.11.1 <4.0.0'
 
 dependencies:
-  meta: ^1.18.2
+  meta: ^1.9.0
 
 dev_dependencies:
   ffi: ^2.2.0
