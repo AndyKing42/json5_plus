@@ -1,5 +1,8 @@
+## 0.1.3
+ * Added typed collection remove methods (`removeBoolList`, `removeBoolSet`, `removeDateTimeList`, `removeDateTimeSet`, `removeDoubleList`, `removeDoubleSet`, `removeDynamicList`, `removeDynamicSet`, `removeIntList`, `removeIntSet`, `removeJsonList`, `removeJsonSet`, `removeStringList`, `removeStringSet`) to `Json5`.
+
 ## 0.1.2
- * Added typed remove methods (`removeBool`, `removeDateTime`, `removeDateTimeUtc`, `removeDouble`, `removeInt`, and `removeString`) to `Json5`.
+ * Added typed scalar remove methods (`removeBool`, `removeDateTime`, `removeDateTimeUtc`, `removeDouble`, `removeInt`, `removeString`) to `Json5`.
 
 ## 0.1.1
  * For read-only Json5 objects always return unmodifiable lists or sets.

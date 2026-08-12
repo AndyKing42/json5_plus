@@ -1,2 +1,3 @@
 # .pubignore
 benchmark/*.exe
+GEMINI.md

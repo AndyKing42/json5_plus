@@ -861,9 +861,41 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of [bool] elements.
+  List<bool> removeBoolList(final dynamic key) {
+    final List<bool> result = List<bool>.of(asBoolList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of [bool] elements.
+  Set<bool> removeBoolSet(final dynamic key) {
+    final Set<bool> result = Set<bool>.of(asBoolSet(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Removes the entry for [key] and returns its date/time representation.
   DateTime removeDateTime(dynamic key, {DateTime? defaultValue}) {
     final DateTime result = asDateTime(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of [DateTime] elements.
+  List<DateTime> removeDateTimeList(final dynamic key) {
+    final List<DateTime> result = List<DateTime>.of(asDateTimeList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of [DateTime] elements.
+  Set<DateTime> removeDateTimeSet(final dynamic key) {
+    final Set<DateTime> result = Set<DateTime>.of(asDateTimeSet(key));
     remove(key);
     return result;
   }
@@ -885,6 +917,38 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of [double] elements.
+  List<double> removeDoubleList(final dynamic key) {
+    final List<double> result = List<double>.of(asDoubleList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of [double] elements.
+  Set<double> removeDoubleSet(final dynamic key) {
+    final Set<double> result = Set<double>.of(asDoubleSet(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of values.
+  List<dynamic> removeDynamicList(final dynamic key) {
+    final List<dynamic> result = List<dynamic>.of(asDynamicList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of values.
+  Set<dynamic> removeDynamicSet(final dynamic key) {
+    final Set<dynamic> result = Set<dynamic>.of(asDynamicSet(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Removes the entry for [key] and returns its integer representation.
   int removeInt(dynamic key, {int defaultValue = 0}) {
     final int result = asInt(key, defaultValue: defaultValue);
@@ -893,9 +957,57 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of [int] elements.
+  List<int> removeIntList(final dynamic key) {
+    final List<int> result = List<int>.of(asIntList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of [int] elements.
+  Set<int> removeIntSet(final dynamic key) {
+    final Set<int> result = Set<int>.of(asIntSet(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of [Json5] elements.
+  List<Json5> removeJsonList(final dynamic key) {
+    final List<Json5> result = List<Json5>.of(asJsonList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of [Json5] elements.
+  Set<Json5> removeJsonSet(final dynamic key) {
+    final Set<Json5> result = Set<Json5>.of(asJsonSet(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Removes the entry for [key] and returns its string representation.
   String removeString(dynamic key, {String defaultValue = ""}) {
     final String result = asString(key, defaultValue: defaultValue);
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the list entry for [key] and returns a detached list of [String] elements.
+  List<String> removeStringList(final dynamic key) {
+    final List<String> result = List<String>.of(asStringList(key));
+    remove(key);
+    return result;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Removes the set entry for [key] and returns a detached set of [String] elements.
+  Set<String> removeStringSet(final dynamic key) {
+    final Set<String> result = Set<String>.of(asStringSet(key));
     remove(key);
     return result;
   }

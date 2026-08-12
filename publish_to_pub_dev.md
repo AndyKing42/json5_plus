@@ -10,7 +10,7 @@ Ensure all working files (code, tests, `pubspec.yaml`, `CHANGELOG.md`) are commi
 
 ```bash
 git add .
-git commit -m "Prepare release v0.1.2"
+git commit -m "Prepare release v0.1.3"
 git push origin main
 ```
 

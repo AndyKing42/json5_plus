@@ -233,6 +233,36 @@ line2",
       expect(removeTestJson.removeBool("missingKey", defaultValue: true), isTrue);
     });
 
+    test("Collection remove methods return detached collection and delete key", () {
+      final Json5 removeCollJson = Json5.fromString("""
+      {
+        intList: [1, 2, 3],
+        stringSet: ["a", "b"],
+        jsonList: [{ a: 1 }, { b: 2 }]
+      }
+      """);
+
+      final List<int> removedInts = removeCollJson.removeIntList("intList");
+      expect(removedInts, [1, 2, 3]);
+      expect(removeCollJson.containsKey("intList"), isFalse);
+
+      final Set<String> removedStrings = removeCollJson.removeStringSet("stringSet");
+      expect(removedStrings, {"a", "b"});
+      expect(removeCollJson.containsKey("stringSet"), isFalse);
+
+      final List<Json5> removedJsons = removeCollJson.removeJsonList("jsonList");
+      expect(removedJsons.length, 2);
+      expect(removedJsons[0].asInt("a"), 1);
+      expect(removeCollJson.containsKey("jsonList"), isFalse);
+
+      // Verify returned list is detached (mutating it does not re-add key to JSON)
+      removedInts.add(4);
+      expect(removeCollJson.containsKey("intList"), isFalse);
+
+      // Missing key returns empty detached collection
+      expect(removeCollJson.removeStringList("missingKey"), isEmpty);
+    });
+
     test("Date time accessors convert various formats correctly", () {
       final expectedDate = DateTime.utc(2023, 1, 1, 12);
 
