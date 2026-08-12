@@ -195,16 +195,16 @@ class Json5 with TypedAccessorMixin {
   factory Json5.fromDiffs(
     final Json5 json1,
     final Json5 json2, {
-    bool caseSensitiveKeys = false,
+    bool? caseSensitiveKeys,
     EDateTimeFormat? dateTimeFormat,
     bool readOnly = false,
     bool? sortedKeys,
   }) {
     final Json5 result = Json5(
-      caseSensitiveKeys: caseSensitiveKeys,
+      caseSensitiveKeys: caseSensitiveKeys ?? json2.caseSensitiveKeys,
       dateTimeFormat: dateTimeFormat ?? json2.dateTimeFormat,
       readOnly: readOnly,
-      sortedKeys: sortedKeys,
+      sortedKeys: sortedKeys ?? json2.sortedKeys,
     );
     for (final MapEntry<String, dynamic> entry in json2._keyToValueMap.entries) {
       if (json1._keyToValueMap[entry.key] != entry.value) {
@@ -236,15 +236,15 @@ class Json5 with TypedAccessorMixin {
   /// Creates a Json5 object by performing a deep copy from another Json5 object.
   factory Json5.fromJson5(
     Json5 json5, {
-    bool caseSensitiveKeys = false,
+    bool? caseSensitiveKeys,
     EDateTimeFormat? dateTimeFormat,
     bool readOnly = false,
     bool? sortedKeys,
   }) => Json5(
-    caseSensitiveKeys: caseSensitiveKeys,
+    caseSensitiveKeys: caseSensitiveKeys ?? json5.caseSensitiveKeys,
     dateTimeFormat: dateTimeFormat ?? json5.dateTimeFormat,
     readOnly: readOnly,
-    sortedKeys: sortedKeys,
+    sortedKeys: sortedKeys ?? json5.sortedKeys,
   )..setFromJson(json5);
 
   //------------------------------------------------------------------------------------------------

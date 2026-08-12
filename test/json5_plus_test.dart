@@ -571,13 +571,14 @@ line2",
     });
 
     test("Deep Copy Isolation (fromJson5 and setFromJson)", () {
-      final original = Json5();
+      final original = Json5(caseSensitiveKeys: true);
       original["list"] = [1, 2];
       final nested = Json5();
       nested["a"] = 1;
       original["nested"] = nested;
 
       final copy = Json5.fromJson5(original);
+      expect(copy.caseSensitiveKeys, isTrue); // verifies caseSensitiveKeys is inherited
 
       // Modify copy
       copy.asDynamicList("list").add(3);

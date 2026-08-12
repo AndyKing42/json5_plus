@@ -1,3 +1,6 @@
+## 0.1.6
+ * Fixed `Json5.fromJson5` and `Json5.fromDiffs` to properly inherit `caseSensitiveKeys` from the source object when unassigned.
+
 ## 0.1.5
  * Updated `meta` dependency version constraint to `^1.9.0` for full compatibility with Flutter SDK version pinning.
 
