@@ -263,6 +263,39 @@ line2",
       expect(removeCollJson.removeStringList("missingKey"), isEmpty);
     });
 
+    test("OrNull accessors and remove methods return null for missing keys", () {
+      final Json5 testJson = Json5.fromString("""
+      {
+        boolVal: true,
+        intVal: 42,
+        stringVal: "hello",
+        intList: [1, 2, 3]
+      }
+      """);
+
+      // as...OrNull
+      expect(testJson.asBoolOrNull("boolVal"), isTrue);
+      expect(testJson.asBoolOrNull("missing"), isNull);
+
+      expect(testJson.asIntOrNull("intVal"), 42);
+      expect(testJson.asIntOrNull("missing"), isNull);
+
+      expect(testJson.asStringOrNull("stringVal"), "hello");
+      expect(testJson.asStringOrNull("missing"), isNull);
+
+      expect(testJson.asIntListOrNull("intList"), [1, 2, 3]);
+      expect(testJson.asIntListOrNull("missing"), isNull);
+
+      // remove...OrNull
+      expect(testJson.removeIntOrNull("intVal"), 42);
+      expect(testJson.containsKey("intVal"), isFalse);
+      expect(testJson.removeIntOrNull("intVal"), isNull);
+
+      expect(testJson.removeIntListOrNull("intList"), [1, 2, 3]);
+      expect(testJson.containsKey("intList"), isFalse);
+      expect(testJson.removeIntListOrNull("intList"), isNull);
+    });
+
     test("Date time accessors convert various formats correctly", () {
       final expectedDate = DateTime.utc(2023, 1, 1, 12);
 
@@ -375,7 +408,99 @@ line2",
 
       final jsonSensitive = Json5(caseSensitiveKeys: true);
       jsonSensitive["Key"] = "value";
-      expect(jsonSensitive["KEY"], isNull);
+      expect(jsonSensitive["KEY"], null);
+      expect(jsonSensitive["Key"], "value");
+    });
+
+    test("Sorted Keys (sortedKeys)", () {
+      final jsonUnsorted = Json5.fromString("{ zebra: 1, Apple: 2, banana: 3 }");
+      expect(jsonUnsorted.keys.toList(), ["zebra", "Apple", "banana"]);
+
+      final jsonSorted = Json5.fromString("{ zebra: 1, Apple: 2, banana: 3 }", sortedKeys: true);
+      expect(jsonSorted.keys.toList(), ["Apple", "banana", "zebra"]);
+
+      // Case-insensitive key lookup still works on sorted object
+      expect(jsonSorted["APPLE"], 2);
+
+      // Dynamically added keys are inserted in sorted order
+      jsonSorted["cherry"] = 4;
+      jsonSorted["aardvark"] = 5;
+      expect(jsonSorted.keys.toList(), ["aardvark", "Apple", "banana", "cherry", "zebra"]);
+    });
+
+    test("Global Configuration (defaultSortedKeys & defaultJson5Format)", () {
+      // Test defaultSortedKeys
+      try {
+        Json5.defaultUseSortedKeys = true;
+        final jsonDefaultSorted = Json5.fromString("{ zebra: 1, apple: 2 }");
+        expect(jsonDefaultSorted.keys.toList(), ["apple", "zebra"]);
+      } finally {
+        Json5.defaultUseSortedKeys = false;
+      }
+
+      // Test defaultJson5Format
+      final testObj = Json5.fromString("{ name: 'Alice' }");
+      expect(testObj.toJsonString(), '{name:"Alice"}'); // default is JSON5 (unquoted keys)
+
+      try {
+        Json5.defaultUseJson5ForToString = false;
+        expect(testObj.toJsonString(), '{"name":"Alice"}'); // standard JSON (quoted keys)
+        expect(testObj.toString(), '{"name":"Alice"}');
+        // Explicit override still works when default is false
+        expect(testObj.toJsonString(json5: true), '{name:"Alice"}');
+      } finally {
+        Json5.defaultUseJson5ForToString = true;
+      }
+    });
+
+    test("String Escaping (Json5.escapeString)", () {
+      expect(Json5.escapeString('hello "world"'), r'hello \"world\"');
+      expect(Json5.escapeString("line1\nline2"), r"line1\nline2");
+      expect(Json5.escapeString("tab\tseparated"), r"tab\tseparated");
+      expect(Json5.escapeString(String.fromCharCode(7)), r"\u0007");
+    });
+
+    test("Allow Blank String (allowBlankString & defaultAllowBlankString)", () {
+      // Default behavior (false): blank string throws FormatException
+      expect(() => Json5.fromString(""), throwsA(isA<FormatException>()));
+      expect(() => Json5.fromString("   "), throwsA(isA<FormatException>()));
+
+      // Explicit per-call override (allowBlankString: true)
+      final jsonBlank = Json5.fromString("", allowBlankString: true);
+      expect(jsonBlank.isEmpty, isTrue);
+
+      final jsonSpaces = Json5.fromString("   \n\t ", allowBlankString: true);
+      expect(jsonSpaces.isEmpty, isTrue);
+
+      // Global configuration static field override
+      try {
+        Json5.defaultAllowBlankString = true;
+        final jsonGlobalBlank = Json5.fromString("");
+        expect(jsonGlobalBlank.isEmpty, isTrue);
+      } finally {
+        Json5.defaultAllowBlankString = false;
+      }
+    });
+
+    test("DateTime Format (EDateTimeFormat & defaultDateTimeFormat)", () {
+      final dt = DateTime.utc(2026, 8, 12, 15, 48, 31);
+      final jsonIso = Json5();
+      jsonIso["time"] = dt;
+      expect(jsonIso.toJsonString(), '{time:"2026-08-12T15:48:31Z"}');
+
+      final jsonYyyy = Json5(dateTimeFormat: EDateTimeFormat.yyyymmddhhmmss);
+      jsonYyyy["time"] = dt;
+      expect(jsonYyyy.toJsonString(), '{time:"20260812154831"}');
+
+      // Global default static field override
+      try {
+        Json5.defaultDateTimeFormat = EDateTimeFormat.yyyymmddhhmmss;
+        final jsonGlobal = Json5();
+        jsonGlobal["time"] = dt;
+        expect(jsonGlobal.toJsonString(), '{time:"20260812154831"}');
+      } finally {
+        Json5.defaultDateTimeFormat = EDateTimeFormat.iso8601;
+      }
     });
 
     test("Read-Only Mode (readOnly)", () {
@@ -433,6 +558,16 @@ line2",
       );
       expect(json2["a"], 1);
       expect(json2["b"], 2);
+
+      // Json5.fromDiffs
+      final jsonA = Json5.fromMap({"a": 1, "b": 2, "c": 3});
+      final jsonB = Json5.fromMap({"a": 1, "b": 99, "d": 4});
+      final diffJson = Json5.fromDiffs(jsonA, jsonB);
+
+      expect(diffJson.containsKey("a"), isFalse); // matching value (1 == 1) omitted
+      expect(diffJson["b"], 99); // modified value included
+      expect(diffJson["d"], 4); // new key in json2 included
+      expect(diffJson.containsKey("c"), isFalse); // key only in json1 omitted
     });
 
     test("Deep Copy Isolation (fromJson5 and setFromJson)", () {

@@ -1,6 +1,15 @@
+import 'json5.dart';
+
 //==================================================================================================
 /// Extension methods for [DateTime].
 extension Json5DateTimeExtension on DateTime? {
+  //------------------------------------------------------------------------------------------------
+  /// Formats the date/time according to [format].
+  String format(EDateTimeFormat format) => switch (format) {
+    EDateTimeFormat.iso8601 => formatIso8601(),
+    EDateTimeFormat.yyyymmddhhmmss => formatYyyymmddhhmmss(),
+  };
+
   //------------------------------------------------------------------------------------------------
   /// Returns the ISO 8601 representation of the date/time.
   String formatIso8601() {
@@ -17,6 +26,18 @@ extension Json5DateTimeExtension on DateTime? {
         ":"
         "${this!.second < 10 ? "0" : ""}${this!.second}"
         "Z";
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Returns the compact YYYYMMDDHHMMSS representation of the date/time.
+  String formatYyyymmddhhmmss() {
+    ArgumentError.checkNotNull(this, "DateTime cannot be null");
+    return "${this!.year}"
+        "${this!.month < 10 ? "0" : ""}${this!.month}"
+        "${this!.day < 10 ? "0" : ""}${this!.day}"
+        "${this!.hour < 10 ? "0" : ""}${this!.hour}"
+        "${this!.minute < 10 ? "0" : ""}${this!.minute}"
+        "${this!.second < 10 ? "0" : ""}${this!.second}";
   }
 
   //==================================================================================================

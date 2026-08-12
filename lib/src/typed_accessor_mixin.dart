@@ -30,6 +30,10 @@ mixin TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Returns the boolean representation of the value associated with [key], or `null` if [key] is missing or null.
+  bool? asBoolOrNull(dynamic key) => containsKey(key) ? asBool(key) : null;
+
+  //------------------------------------------------------------------------------------------------
   /// Returns the date/time representation of the value associated with [key].
   DateTime asDateTime(dynamic key, {DateTime? defaultValue}) {
     dynamic value = asType(key);
@@ -47,9 +51,31 @@ mixin TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Returns the date/time representation of the value associated with [key], or `null` if [key] is missing or null.
+  DateTime? asDateTimeOrNull(dynamic key) {
+    dynamic value = asType(key);
+    if (value == null) {
+      return null;
+    }
+    switch (value) {
+      case DateTime dateTimeValue:
+        return dateTimeValue;
+      case num numValue:
+        return DateTime.fromMillisecondsSinceEpoch(numValue.toInt());
+      default:
+        return value.toString().toDateTime();
+    }
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Returns the UTC date/time representation of the value associated with [key].
   DateTime asDateTimeUtc(final dynamic key, [final DateTime? defaultValue]) =>
       asString(key).toDateTimeUtc() ?? defaultValue ?? epochUtc;
+
+  //------------------------------------------------------------------------------------------------
+  /// Returns the UTC date/time representation of the value associated with [key], or `null` if [key] is missing or null.
+  DateTime? asDateTimeUtcOrNull(final dynamic key) =>
+      containsKey(key) ? asString(key).toDateTimeUtc() : null;
 
   //------------------------------------------------------------------------------------------------
   /// Returns the double representation of the value associated with [key].
@@ -71,6 +97,10 @@ mixin TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Returns the double representation of the value associated with [key], or `null` if [key] is missing or null.
+  double? asDoubleOrNull(dynamic key) => containsKey(key) ? asDouble(key) : null;
+
+  //------------------------------------------------------------------------------------------------
   /// Returns the integer representation of the value associated with [key].
   int asInt(dynamic key, {int defaultValue = 0}) {
     dynamic result = asType(key);
@@ -90,6 +120,10 @@ mixin TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  /// Returns the integer representation of the value associated with [key], or `null` if [key] is missing or null.
+  int? asIntOrNull(dynamic key) => containsKey(key) ? asInt(key) : null;
+
+  //------------------------------------------------------------------------------------------------
   /// Returrns the string representation of the value associated with [key].
   String asString(dynamic key, {String defaultValue = ""}) {
     dynamic result = asType(key);
@@ -100,11 +134,15 @@ mixin TypedAccessorMixin {
       case bool b:
         return b ? "true" : "false";
       case DateTime d:
-        return d.formatIso8601();
+        return this is Json5 ? d.format((this as Json5).dateTimeFormat) : d.formatIso8601();
       default:
         return result.toString();
     }
   }
+
+  //------------------------------------------------------------------------------------------------
+  /// Returns the string representation of the value associated with [key], or `null` if [key] is missing or null.
+  String? asStringOrNull(dynamic key) => containsKey(key) ? asString(key) : null;
 
   //------------------------------------------------------------------------------------------------
   /// Return the value associated with [key].

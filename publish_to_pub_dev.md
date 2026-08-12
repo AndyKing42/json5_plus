@@ -10,7 +10,8 @@ Ensure all working files (code, tests, `pubspec.yaml`, `CHANGELOG.md`) are commi
 
 ```bash
 git add .
-git commit -m "Prepare release v0.1.3"
+VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f2)
+git commit -m "Prepare release v$VERSION"
 git push origin main
 ```
 

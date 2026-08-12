@@ -10,6 +10,7 @@ class Json5Parser {
 
   final bool _caseSensitiveKeys;
   Json5CommentRegistry? _commentRegistry;
+  final EDateTimeFormat _dateTimeFormat;
   final String _jsonString;
   final int _jsonStringLength;
   final Map<String, String> _keyCacheMap;
@@ -18,34 +19,43 @@ class Json5Parser {
   final Map<String, dynamic>? _params;
   int _pos;
   final bool _readOnly;
+  final bool _sortedKeys;
   final bool _useKeyCache;
 
   //------------------------------------------------------------------------------------------------
   /// Decodes a JSON5 string.
   static Json5 decode({
     bool caseSensitiveKeys = false,
+    EDateTimeFormat dateTimeFormat = EDateTimeFormat.iso8601,
     required String jsonString,
     Map<String, dynamic>? params,
     bool readOnly = false,
+    bool sortedKeys = false,
   }) => Json5Parser._(
     caseSensitiveKeys: caseSensitiveKeys,
+    dateTimeFormat: dateTimeFormat,
     jsonString: jsonString,
     params: params,
     readOnly: readOnly,
+    sortedKeys: sortedKeys,
   )._parse();
 
   //------------------------------------------------------------------------------------------------
   /// Decodes any valid JSON5 string (Object, Array, Primitive).
   static dynamic decodeAny({
     bool caseSensitiveKeys = false,
+    EDateTimeFormat dateTimeFormat = EDateTimeFormat.iso8601,
     required String jsonString,
     Map<String, dynamic>? params,
     bool readOnly = false,
+    bool sortedKeys = false,
   }) => Json5Parser._(
     caseSensitiveKeys: caseSensitiveKeys,
+    dateTimeFormat: dateTimeFormat,
     jsonString: jsonString,
     params: params,
     readOnly: readOnly,
+    sortedKeys: sortedKeys,
   )._parseAny();
 
   //------------------------------------------------------------------------------------------------
@@ -53,16 +63,20 @@ class Json5Parser {
   /// along with any trailing unprocessed text.
   static ({List<Json5> jsonList, String unprocessed}) decodeMultiple({
     required bool caseSensitiveKeys,
+    required EDateTimeFormat dateTimeFormat,
     required String jsonString,
     Map<String, dynamic>? params,
     required bool readOnly,
+    required bool sortedKeys,
   }) {
     final List<Json5> jsonList = [];
     final Json5Parser parser = Json5Parser._(
       caseSensitiveKeys: caseSensitiveKeys,
+      dateTimeFormat: dateTimeFormat,
       jsonString: jsonString,
       params: params,
       readOnly: readOnly,
+      sortedKeys: sortedKeys,
     );
     while (true) {
       if (parser._skipWhitespace()) {
@@ -90,10 +104,13 @@ class Json5Parser {
   //------------------------------------------------------------------------------------------------
   Json5Parser._({
     required bool caseSensitiveKeys,
+    required EDateTimeFormat dateTimeFormat,
     required String jsonString,
     Map<String, dynamic>? params,
     required bool readOnly,
+    required bool sortedKeys,
   }) : _caseSensitiveKeys = caseSensitiveKeys,
+       _dateTimeFormat = dateTimeFormat,
        _jsonString = jsonString,
        _jsonStringLength = jsonString.length,
        _keyCacheMap = {},
@@ -102,6 +119,7 @@ class Json5Parser {
        _params = params,
        _pos = 0,
        _readOnly = readOnly,
+       _sortedKeys = sortedKeys,
        _useKeyCache = jsonString.length > 16_384;
 
   //------------------------------------------------------------------------------------------------
@@ -354,7 +372,12 @@ class Json5Parser {
 
   //------------------------------------------------------------------------------------------------
   Json5 _parseObject() {
-    final Json5 result = Json5(caseSensitiveKeys: _caseSensitiveKeys, readOnly: _readOnly);
+    final Json5 result = Json5(
+      caseSensitiveKeys: _caseSensitiveKeys,
+      dateTimeFormat: _dateTimeFormat,
+      readOnly: _readOnly,
+      sortedKeys: _sortedKeys,
+    );
     ++_pos; // skip "{"
     if (_skipWhitespace()) {
       _skipWhitespaceAndRegisterComments(

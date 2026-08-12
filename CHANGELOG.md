@@ -1,3 +1,13 @@
+## 0.1.4
+ * Made `Json5.escapeString` static method public for escaping control characters, quotes, and backslashes in JSON/JSON5 strings.
+ * Added `Json5.fromDiffs` factory constructor to construct a new `Json5` object containing only key-value entries from `json2` that differ from or do not exist in `json1`.
+ * Added `EDateTimeFormat` enum (`iso8601`, `yyyymmddhhmmss`) and `dateTimeFormat` parameter across `Json5` constructors, factories, and parser, with global configuration field `Json5.defaultDateTimeFormat`.
+ * Added `allowBlankString` parameter to `Json5.fromString` and static field `Json5.defaultAllowBlankString` to allow parsing empty/whitespace strings as `{}`.
+ * Added `sortedKeys` parameter and field to `Json5` constructors, factories, and parser to enforce case-insensitive key sorting.
+ * Added global configuration static fields `Json5.defaultUseJson5ForToString` and `Json5.defaultUseSortedKeys`.
+ * Added `OrNull` typed accessors (`asBoolOrNull`, `asDateTimeOrNull`, `asDateTimeUtcOrNull`, `asDoubleOrNull`, `asIntOrNull`, `asJsonOrNull`, `asStringOrNull`, and collection variants) to `TypedAccessorMixin` and `Json5`.
+ * Added `OrNull` typed removal methods (`removeBoolOrNull`, `removeDateTimeOrNull`, `removeDateTimeUtcOrNull`, `removeDoubleOrNull`, `removeIntOrNull`, `removeJsonOrNull`, `removeStringOrNull`, and collection variants) to `Json5`.
+
 ## 0.1.3
  * Added typed collection remove methods (`removeBoolList`, `removeBoolSet`, `removeDateTimeList`, `removeDateTimeSet`, `removeDoubleList`, `removeDoubleSet`, `removeDynamicList`, `removeDynamicSet`, `removeIntList`, `removeIntSet`, `removeJsonList`, `removeJsonSet`, `removeStringList`, `removeStringSet`) to `Json5`.
 

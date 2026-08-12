@@ -4,9 +4,11 @@ import 'json5.dart';
 /// Creates a Json5 object by reading and parsing the contents of the file at [path].
 Json5 fromFile({
   required bool caseSensitiveKeys,
+  required EDateTimeFormat dateTimeFormat,
   Map<String, dynamic>? params,
   required String path,
   required bool readOnly,
+  required bool sortedKeys,
 }) {
   io.File file = io.File(path);
   if (!file.existsSync()) {
@@ -15,8 +17,10 @@ Json5 fromFile({
   return Json5.fromString(
     file.readAsStringSync(),
     caseSensitiveKeys: caseSensitiveKeys,
+    dateTimeFormat: dateTimeFormat,
     params: params,
     readOnly: readOnly,
+    sortedKeys: sortedKeys,
   );
 }
 
