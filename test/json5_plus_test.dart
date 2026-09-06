@@ -676,5 +676,102 @@ line2",
         } catch (_) {}
       }
     });
+
+    test("Quoted and escaped characters in keys (JSON and JSON5 modes)", () {
+      final json = Json5();
+      json['key"with"quotes'] = 1;
+      json[r"key\with\backslashes"] = 2;
+      json["key\nwith\nnewlines"] = 3;
+      json["key\twith\ttabs"] = 4;
+      json["key with spaces"] = 5;
+      json["key:with:colons"] = 6;
+      json["valid_identifier_123"] = 7;
+      json[r"$dollar_key"] = 8;
+      json["_underscore_key"] = 9;
+      json["123_starts_with_digit"] = 10;
+
+      // 1. Test JSON mode serialization
+      final String jsonOut = json.toJsonString(json5: false);
+      expect(jsonOut, contains(r'"key\"with\"quotes":1'));
+      expect(jsonOut, contains(r'"key\\with\\backslashes":2'));
+      expect(jsonOut, contains(r'"key\nwith\nnewlines":3'));
+      expect(jsonOut, contains(r'"key\twith\ttabs":4'));
+      expect(jsonOut, contains('"key with spaces":5'));
+      expect(jsonOut, contains('"key:with:colons":6'));
+      expect(jsonOut, contains('"valid_identifier_123":7'));
+      expect(jsonOut, contains(r'"$dollar_key":8'));
+      expect(jsonOut, contains('"_underscore_key":9'));
+      expect(jsonOut, contains('"123_starts_with_digit":10'));
+
+      // Re-parse from JSON output and verify values match
+      final reparsedFromJson = Json5.fromString(jsonOut);
+      expect(reparsedFromJson['key"with"quotes'], 1);
+      expect(reparsedFromJson[r"key\with\backslashes"], 2);
+      expect(reparsedFromJson["key\nwith\nnewlines"], 3);
+      expect(reparsedFromJson["key\twith\ttabs"], 4);
+      expect(reparsedFromJson["key with spaces"], 5);
+      expect(reparsedFromJson["key:with:colons"], 6);
+      expect(reparsedFromJson["valid_identifier_123"], 7);
+      expect(reparsedFromJson[r"$dollar_key"], 8);
+      expect(reparsedFromJson["_underscore_key"], 9);
+      expect(reparsedFromJson["123_starts_with_digit"], 10);
+
+      // 2. Test JSON5 mode serialization (identifiers unquoted, non-identifiers quoted & escaped)
+      final String json5Out = json.toJsonString();
+      expect(json5Out, contains(r'"key\"with\"quotes":1'));
+      expect(json5Out, contains(r'"key\\with\\backslashes":2'));
+      expect(json5Out, contains(r'"key\nwith\nnewlines":3'));
+      expect(json5Out, contains(r'"key\twith\ttabs":4'));
+      expect(json5Out, contains('"key with spaces":5'));
+      expect(json5Out, contains('"key:with:colons":6'));
+      expect(json5Out, contains("valid_identifier_123:7"));
+      expect(json5Out, contains(r"$dollar_key:8"));
+      expect(json5Out, contains("_underscore_key:9"));
+      expect(json5Out, contains('"123_starts_with_digit":10'));
+
+      // Re-parse from JSON5 output and verify round-trip
+      final reparsedFromJson5 = Json5.fromString(json5Out);
+      expect(reparsedFromJson5['key"with"quotes'], 1);
+      expect(reparsedFromJson5[r"key\with\backslashes"], 2);
+      expect(reparsedFromJson5["key\nwith\nnewlines"], 3);
+      expect(reparsedFromJson5["key\twith\ttabs"], 4);
+      expect(reparsedFromJson5["key with spaces"], 5);
+      expect(reparsedFromJson5["key:with:colons"], 6);
+      expect(reparsedFromJson5["valid_identifier_123"], 7);
+      expect(reparsedFromJson5[r"$dollar_key"], 8);
+      expect(reparsedFromJson5["_underscore_key"], 9);
+      expect(reparsedFromJson5["123_starts_with_digit"], 10);
+
+      // 3. Test pretty-printed formatted output round-trip
+      final String prettyJson5 = json.toFormattedString();
+      final reparsedFromPrettyJson5 = Json5.fromString(prettyJson5);
+      expect(reparsedFromPrettyJson5['key"with"quotes'], 1);
+      expect(reparsedFromPrettyJson5[r"key\with\backslashes"], 2);
+      expect(reparsedFromPrettyJson5["key\nwith\nnewlines"], 3);
+
+      final String prettyJson = json.toFormattedString(json5: false);
+      final reparsedFromPrettyJson = Json5.fromString(prettyJson);
+      expect(reparsedFromPrettyJson['key"with"quotes'], 1);
+      expect(reparsedFromPrettyJson[r"key\with\backslashes"], 2);
+      expect(reparsedFromPrettyJson["key\nwith\nnewlines"], 3);
+    });
+
+    test("Parser decodes extended escape sequences in keys", () {
+      const String input = r"""
+      {
+        'single\'quote\'key': 1,
+        "vertical\vtab\vkey": 2,
+        "null\0char\0key": 3,
+        "hex\x41\x42key": 4,
+        "unicode\u0043\u0044key": 5,
+      }
+      """;
+      final json = Json5.fromString(input);
+      expect(json["single'quote'key"], 1);
+      expect(json["vertical\x0btab\x0bkey"], 2);
+      expect(json["null\x00char\x00key"], 3);
+      expect(json["hexABkey"], 4);
+      expect(json["unicodeCDkey"], 5);
+    });
   });
 }

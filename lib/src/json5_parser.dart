@@ -475,8 +475,7 @@ class Json5Parser {
   }) {
     final int start = _pos;
     final int firstChar = _jsonString.codeUnitAt(_pos);
-    final ({bool matched, dynamic value}) result =
-        _parsePrimitiveBooleansNullOrInclude(
+    final ({bool matched, dynamic value}) result = _parsePrimitiveBooleansNullOrInclude(
       commentLocation: commentLocation,
       container: container,
       firstChar: firstChar,
@@ -681,16 +680,18 @@ class Json5Parser {
           case 10:
             ++_lineNumber;
             buffer.writeCharCode(10); // Escaped newline
+          case 48:
+            buffer.writeCharCode(0); // "\0"
           case 98:
             buffer.writeCharCode(8); // "\b"
-          case 116:
-            buffer.writeCharCode(9); // "\t"
-          case 110:
-            buffer.writeCharCode(10); // "\n"
           case 102:
             buffer.writeCharCode(12); // "\f"
+          case 110:
+            buffer.writeCharCode(10); // "\n"
           case 114:
             buffer.writeCharCode(13); // "\r"
+          case 116:
+            buffer.writeCharCode(9); // "\t"
           case 117: // "\u"
             if (i + 4 >= _jsonStringLength) {
               _pos = i;
@@ -703,6 +704,8 @@ class Json5Parser {
             }
             buffer.writeCharCode(charCode);
             i += 4;
+          case 118:
+            buffer.writeCharCode(11); // "\v"
           case 120: // "\x"
             if (i + 2 >= _jsonStringLength) {
               _pos = i;

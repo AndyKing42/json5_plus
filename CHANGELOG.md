@@ -1,3 +1,9 @@
+## 0.1.7
+ * Added support for escaping and quoting special characters in keys during JSON and JSON5 serialization (`toJsonString`, `toFormattedString`, `toString`).
+ * Keys in JSON mode now escape quotes, backslashes, and control characters.
+ * Keys in JSON5 mode now automatically quote and escape keys that are not valid ECMAScript identifiers (e.g. containing spaces, colons, punctuation, quotes, or leading digits).
+ * Added explicit support for `\v` (vertical tab) and `\0` (null character) escape sequences when parsing keys and strings.
+
 ## 0.1.6
  * Fixed `Json5.fromJson5` and `Json5.fromDiffs` to properly inherit `caseSensitiveKeys` from the source object when unassigned.
 

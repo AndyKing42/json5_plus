@@ -171,6 +171,43 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  static String _formatKey(String key, {required bool json5}) {
+    if (json5 && _isIdentifier(key)) {
+      return key;
+    }
+    if (!json5 && _isIdentifier(key)) {
+      return '"$key"';
+    }
+    return '"${escapeString(key)}"';
+  }
+
+  //------------------------------------------------------------------------------------------------
+  static bool _isIdentifier(String key) {
+    final int keyLength = key.length;
+    if (keyLength == 0) {
+      return false;
+    }
+    final int first = key.codeUnitAt(0);
+    if (!((first >= 97 && first <= 122) ||
+        (first >= 65 && first <= 90) ||
+        first == 95 ||
+        first == 36)) {
+      return false;
+    }
+    for (int i = 1; i < keyLength; ++i) {
+      final int c = key.codeUnitAt(i);
+      if (!((c >= 97 && c <= 122) ||
+          (c >= 65 && c <= 90) ||
+          (c >= 48 && c <= 57) ||
+          c == 95 ||
+          c == 36)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Decodes any JSON5 string into its dynamic Dart representation (which could be a Json5 object,
   /// List, String, num, bool, or null).
   static dynamic parseAny(
@@ -726,9 +763,7 @@ class Json5 with TypedAccessorMixin {
       skipPrecedingNewline: true,
     );
     buffer
-      ..write(json5 ? "" : '"')
-      ..write(key)
-      ..write(json5 ? "" : '"')
+      ..write(_formatKey(key, json5: json5))
       ..write(":");
     _writeComments(
       buffer: buffer,
@@ -1593,9 +1628,7 @@ class Json5 with TypedAccessorMixin {
       final dynamic value = _keyToValueMap[key];
       buffer
         ..write(firstEntry ? "" : ",")
-        ..write(useJson5 ? "" : '"')
-        ..write(key)
-        ..write(useJson5 ? "" : '"')
+        ..write(_formatKey(key, json5: useJson5))
         ..write(":")
         ..write(_valueToString(value, json5: useJson5));
       firstEntry = false;

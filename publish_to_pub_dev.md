@@ -4,7 +4,28 @@ Follow these steps to publish a new version of the `json5_plus` package to [pub.
 
 ---
 
-## 1. Commit and Push Changes to Git
+## 1. Bump the Version in `pubspec.yaml`
+
+Update the `version:` field in `pubspec.yaml` following Semantic Versioning (`major.minor.patch`):
+
+```yaml
+version: 0.1.7
+```
+
+---
+
+## 2. Update `CHANGELOG.md`
+
+Add a new section at the top of `CHANGELOG.md` matching the new version number and document the changes, additions, and bug fixes:
+
+```markdown
+## 0.1.7
+ * Description of changes...
+```
+
+---
+
+## 3. Commit and Push Changes to Git
 
 Ensure all working files (code, tests, `pubspec.yaml`, `CHANGELOG.md`) are committed and pushed to GitHub:
 
@@ -17,7 +38,7 @@ git push origin main
 
 ---
 
-## 2. Perform a Dry Run Verification
+## 4. Perform a Dry Run Verification
 
 Run a dry run of the publish command to check for any static analysis issues, formatting errors, or package configuration warnings:
 
@@ -29,7 +50,7 @@ Ensure the dry run completes with no errors or warnings before proceeding.
 
 ---
 
-## 3. Publish to pub.dev
+## 5. Publish to pub.dev
 
 Execute the publish command:
 
