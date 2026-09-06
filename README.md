@@ -14,11 +14,10 @@ This package is built with performance in mind, offering parsing speeds that are
 
 ## Getting started
 
-Add the following to your `pubspec.yaml`:
+Add `json5_plus` to your project:
 
-```yaml
-dependencies:
-  json5_plus: ^0.1.1
+```bash
+dart pub add json5_plus
 ```
 
 ## Usage

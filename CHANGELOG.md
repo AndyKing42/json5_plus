@@ -1,3 +1,6 @@
+## 0.1.8
+ * Updated `README.md` Getting Started instructions to use `dart pub add json5_plus`.
+
 ## 0.1.7
  * Added support for escaping and quoting special characters in keys during JSON and JSON5 serialization (`toJsonString`, `toFormattedString`, `toString`).
  * Keys in JSON mode now escape quotes, backslashes, and control characters.
