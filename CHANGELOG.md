@@ -1,3 +1,33 @@
+## 0.2.1
+ * Lazily allocated `_ephemeralKeys` in `Json5` only when an ephemeral list or set is created, eliminating an extra `Set`/`LinkedHashSet` allocation and empty-set hash lookup per parsed object.
+ * Added a dedicated fast path in `Json5.setParsedEntry` to avoid redundant `_getKey` lookups and `_convertIterable` re-scans on arrays already parsed by `Json5Parser`.
+ * Added `Json5.isBlankString` to avoid `trim()` string allocations when validating non-blank inputs in `Json5.fromString` and `Json5.fromFile`.
+ * Optimized `_isWhitespace` with an ASCII fast path and routed simple floating-point literals directly to `double.tryParse` in `Json5Parser._parsePrimitive`.
+ * Fixed a missing opening quote typo in `json5Input` inside `benchmark/json5_benchmark.dart`.
+
+## 0.2.0
+ * **Breaking:** Enforced `readOnly: true` at runtime by throwing `UnsupportedError` instead of debug-only `AssertionError` across all mutating methods and `Json5.emptyJson`, and fixed `fromString`, `fromMap`, `fromJson5`, `fromDiffs`, `fromKeyAndValueLists`, `fromKeyToIndexMapAndValueList`, and `Json5Parser` to construct `readOnly: true` objects (including nested objects and collections) without throwing during initialization.
+ * **Breaking:** Updated `asDateTimeUtc` and `removeDateTimeUtc` to take a named `{DateTime? defaultValue}` parameter (matching `asDateTime` / `removeDateTime`), and fixed `asDateTimeUtc` / `asDateTimeUtcOrNull` to handle `DateTime` and numeric epoch millisecond values directly.
+ * **Breaking:** Serialized non-finite `double` values (`NaN`, `Infinity`, `-Infinity`) as `null` when formatting in strict JSON mode (`json5: false`).
+ * **Breaking:** Enhanced `$include` to resolve relative paths relative to the enclosing file's directory (when loaded via `Json5.fromFile`), forward `caseSensitiveKeys`, `dateTimeFormat`, `readOnly`, and `sortedKeys` options, and detect circular `$include` chains.
+ * Fixed `${params.*}` standalone placeholder extraction off-by-one bug so native non-`String` parameter values (`int`, `bool`, `Map`, `List`) preserve their types.
+ * Fixed `TypedAccessorMixin.joinStrings` to honor the `includeBlankValues` parameter.
+ * Eliminated string allocations in case-insensitive `SplayTreeMap` comparisons and hoisted static map comparator/equality/hashCode helpers.
+ * Added `Json5.deepEquals`, updated `Json5.fromDiffs` and `Json5.setIfChanged` to use recursive deep equality, and bound object property comments in `Json5CommentRegistry` to property keys so comments move with their keys under `sortedKeys: true` and are preserved by `Json5.fromJson5`.
+
+## 0.1.9
+ * Normalized escaped `CR` and `CRLF` line endings in multi-line JSON5 strings to `\n`.
+ * Fixed an infinite loop when a stray `/` appears in whitespace or comment positions.
+ * Fixed `Json5.decodeMultiple` so incomplete trailing objects are preserved in `unprocessed`.
+ * Fixed ephemeral keys to respect `caseSensitiveKeys: false` and prevented ephemeral entries from leaking into `containsKey`, `isNull`, `isNotNull`, `operator []`, `fromDiffs`, `setFromJson`, `setIfChanged`, `setIfNewValueIsNotEmpty`, and `setIfNotEqual`.
+ * Fixed `Json5.set` to recursively convert nested `Map`s inside `Iterable`s (including typed lists and `const` lists) into `Json5` objects.
+ * Optimized enum key/value handling via `Enum.name` and `is Enum`.
+ * Optimized `toJsonString` to write directly into a single shared `StringBuffer`, and optimized `escapeString` and `_parseStringWithEscapes` to copy unescaped slices with fewer allocations.
+ * Eliminated redundant lookups in `remove*ListOrNull` / `remove*SetOrNull` and pre-compiled the date separator `RegExp`.
+ * Added support for uppercase `0X` hex prefixes and rejected invalid signs after `0x`/`0X`.
+ * Delegated floating-point parsing to `num.tryParse` for exact IEEE-754 precision.
+ * Added support for UTF-8 BOM (`\uFEFF`) and non-breaking space (`\u00A0`) as whitespace.
+
 ## 0.1.8
  * Updated `README.md` Getting Started instructions to use `dart pub add json5_plus`.
 

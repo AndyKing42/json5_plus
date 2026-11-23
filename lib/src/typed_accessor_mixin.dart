@@ -36,46 +36,35 @@ mixin TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Returns the date/time representation of the value associated with [key].
   DateTime asDateTime(dynamic key, {DateTime? defaultValue}) {
-    dynamic value = asType(key);
+    final dynamic value = asType(key);
     if (value == null) {
       return defaultValue ?? DateTime.now();
     }
-    switch (value) {
-      case DateTime dateTimeValue:
-        return dateTimeValue;
-      case num numValue:
-        return DateTime.fromMillisecondsSinceEpoch(numValue.toInt());
-      default:
-        return value.toString().toDateTime() ?? defaultValue ?? epochUtc;
-    }
+    return _parseDateTimeValue(value, utc: false) ?? defaultValue ?? epochUtc;
   }
 
   //------------------------------------------------------------------------------------------------
   /// Returns the date/time representation of the value associated with [key], or `null` if [key] is missing or null.
   DateTime? asDateTimeOrNull(dynamic key) {
-    dynamic value = asType(key);
-    if (value == null) {
-      return null;
-    }
-    switch (value) {
-      case DateTime dateTimeValue:
-        return dateTimeValue;
-      case num numValue:
-        return DateTime.fromMillisecondsSinceEpoch(numValue.toInt());
-      default:
-        return value.toString().toDateTime();
-    }
+    final dynamic value = asType(key);
+    return value == null ? null : _parseDateTimeValue(value, utc: false);
   }
 
   //------------------------------------------------------------------------------------------------
   /// Returns the UTC date/time representation of the value associated with [key].
-  DateTime asDateTimeUtc(final dynamic key, [final DateTime? defaultValue]) =>
-      asString(key).toDateTimeUtc() ?? defaultValue ?? epochUtc;
+  DateTime asDateTimeUtc(final dynamic key, {final DateTime? defaultValue}) {
+    final dynamic value = asType(key);
+    return (value == null ? null : _parseDateTimeValue(value, utc: true)) ??
+        defaultValue ??
+        epochUtc;
+  }
 
   //------------------------------------------------------------------------------------------------
   /// Returns the UTC date/time representation of the value associated with [key], or `null` if [key] is missing or null.
-  DateTime? asDateTimeUtcOrNull(final dynamic key) =>
-      containsKey(key) ? asString(key).toDateTimeUtc() : null;
+  DateTime? asDateTimeUtcOrNull(final dynamic key) {
+    final dynamic value = asType(key);
+    return value == null ? null : _parseDateTimeValue(value, utc: true);
+  }
 
   //------------------------------------------------------------------------------------------------
   /// Returns the double representation of the value associated with [key].
@@ -170,11 +159,23 @@ mixin TypedAccessorMixin {
     final List<String> resultList = [];
     for (final dynamic key in keyList) {
       final String val = asString(key);
-      if (val.isNotEmpty) {
+      if (includeBlankValues || val.isNotBlank) {
         resultList.add(val);
       }
     }
     return resultList.join(separator);
+  }
+
+  //------------------------------------------------------------------------------------------------
+  DateTime? _parseDateTimeValue(dynamic value, {required bool utc}) {
+    switch (value) {
+      case DateTime dateTimeValue:
+        return utc ? dateTimeValue.toUtc() : dateTimeValue;
+      case num numValue:
+        return DateTime.fromMillisecondsSinceEpoch(numValue.toInt(), isUtc: utc);
+      default:
+        return utc ? value.toString().toDateTimeUtc() : value.toString().toDateTime();
+    }
   }
 
   //------------------------------------------------------------------------------------------------

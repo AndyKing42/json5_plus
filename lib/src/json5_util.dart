@@ -13,12 +13,15 @@ class Json5Util {
   //------------------------------------------------------------------------------------------------
   /// Returns true if [value] is an enum entry.
   bool isEnum(dynamic value) {
-    Type type = value.runtimeType;
+    if (value is Enum) {
+      return true;
+    }
+    final Type type = value.runtimeType;
     if (_builtinTypeSet.contains(type)) {
       return false;
     }
-    String valueString = value.toString();
-    int dotIndex = valueString.indexOf(".");
+    final String valueString = value.toString();
+    final int dotIndex = valueString.indexOf(".");
     return dotIndex > 0 && type.toString() == valueString.substring(0, dotIndex);
   }
 

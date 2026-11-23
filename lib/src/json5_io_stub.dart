@@ -2,8 +2,10 @@ import 'json5.dart';
 
 /// fromFile is not supported on the web.
 Json5 fromFile({
+  String? baseFilePath,
   required bool caseSensitiveKeys,
   required EDateTimeFormat dateTimeFormat,
+  Set<String>? includePathSet,
   Map<String, dynamic>? params,
   required String path,
   required bool readOnly,

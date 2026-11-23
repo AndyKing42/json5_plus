@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:json5_plus/json5_plus.dart';
 import 'package:test/test.dart';
 
+enum _ETestKey { alpha, beta }
+
 void main() {
   group("Json5 Parser and Stringifier Black-Box Tests", () {
     test("Standard JSON works correctly", () {
@@ -49,6 +51,8 @@ line2",
       expect(json["leadingDecimal"], 0.5);
       expect(json["trailingDecimal"], 5.0);
       expect(json["multiLineString"], "line1\nline2");
+      final Json5 crlfJson = Json5.fromString('{ multiLineString: "line1\\\r\nline2" }');
+      expect(crlfJson["multiLineString"], "line1\nline2");
     });
 
     test("Output of both JSON and JSON5 strings works correctly", () {
@@ -305,6 +309,10 @@ line2",
 
       // UTC specific check
       expect(json.asDateTimeUtc("dateStr"), expectedDate);
+      expect(json.asDateTimeUtc("dateObj"), expectedDate);
+      expect(json.asDateTimeUtc("dateNum"), expectedDate);
+      expect(json.asDateTimeUtc("missing", defaultValue: expectedDate), expectedDate);
+      expect(json.asDateTimeUtcOrNull("dateNum"), expectedDate);
     });
 
     test("Presence and null checks evaluate correctly", () {
@@ -386,6 +394,19 @@ line2",
     test("joinStrings utility works correctly", () {
       final String joined = json.joinStrings(["stringVal", "intVal", "missing"], separator: "-");
       expect(joined, "hello-42"); // "missing" should be skipped because it defaults to ""
+      json["blankVal"] = "   ";
+      expect(
+        json.joinStrings(["stringVal", "blankVal", "intVal"], separator: "-"),
+        "hello-42",
+      );
+      expect(
+        json.joinStrings(
+          ["stringVal", "blankVal", "missing", "intVal"],
+          includeBlankValues: true,
+          separator: "-",
+        ),
+        "hello-   --42",
+      );
     });
   });
 
@@ -505,7 +526,36 @@ line2",
 
     test("Read-Only Mode (readOnly)", () {
       final json = Json5(readOnly: true);
-      expect(() => json["key"] = "value", throwsA(isA<AssertionError>()));
+      expect(() => json["key"] = "value", throwsA(isA<UnsupportedError>()));
+      expect(() => Json5.emptyJson["key"] = "value", throwsA(isA<UnsupportedError>()));
+      final Json5 parsedReadOnly = Json5.fromString(
+        "{ a: 1, nested: { b: 2 }, list: [1, { c: 3 }] }",
+        readOnly: true,
+      );
+      expect(parsedReadOnly["a"], 1);
+      expect(() => parsedReadOnly["a"] = 2, throwsA(isA<UnsupportedError>()));
+      expect(() => parsedReadOnly.asJson("nested")["b"] = 3, throwsA(isA<UnsupportedError>()));
+      expect(() => (parsedReadOnly["list"] as List<dynamic>).add(9), throwsA(isA<UnsupportedError>()));
+      final Json5 mapReadOnly = Json5.fromMap(
+        {
+          "nested": {"x": 1},
+          "items": [
+            {"y": 2},
+          ],
+        },
+        readOnly: true,
+      );
+      expect(() => mapReadOnly.asJson("nested")["x"] = 2, throwsA(isA<UnsupportedError>()));
+      expect(
+        () => mapReadOnly.asJsonList("items").first["y"] = 3,
+        throwsA(isA<UnsupportedError>()),
+      );
+      final Json5 copiedReadOnly = Json5.fromJson5(
+        Json5.fromString("{ a: 1, nested: { b: 2 } }"),
+        readOnly: true,
+      );
+      expect(() => copiedReadOnly["a"] = 2, throwsA(isA<UnsupportedError>()));
+      expect(() => copiedReadOnly.asJson("nested")["b"] = 3, throwsA(isA<UnsupportedError>()));
     });
 
     test("Conditional Setters", () {
@@ -772,6 +822,197 @@ line2",
       expect(json["null\x00char\x00key"], 3);
       expect(json["hexABkey"], 4);
       expect(json["unicodeCDkey"], 5);
+    });
+
+    test("Parser rejects stray slash without hanging", () {
+      expect(() => Json5.fromString("{ a: 1 / }"), throwsA(isA<FormatException>()));
+      expect(() => Json5.fromString("/ { a: 1 }"), throwsA(isA<FormatException>()));
+    });
+
+    test("decodeMultiple preserves partial trailing object in unprocessed", () {
+      const String input = "{a: 1} {b: 2";
+      final ({List<Json5> jsonList, String unprocessed}) result = Json5.decodeMultiple(
+        jsonString: input,
+      );
+      expect(result.jsonList.length, 1);
+      expect(result.jsonList[0]["a"], 1);
+      expect(result.unprocessed.trim(), "{b: 2");
+    });
+
+    test("Ephemeral keys respect case-insensitivity and do not leak", () {
+      final Json5 localJson = Json5();
+      final List<int> missingList = localJson.asIntList("myList");
+      expect(localJson.containsKey("MYLIST"), isFalse);
+      expect(localJson.isNull("MYLIST"), isTrue);
+      expect(localJson.isNotNull("MYLIST"), isFalse);
+      expect(localJson["MYLIST"], isNull);
+      expect(localJson.asIntListOrNull("MYLIST"), isNull);
+      missingList.add(7);
+      expect(localJson.containsKey("MYLIST"), isTrue);
+      expect(localJson.asIntListOrNull("MYLIST"), [7]);
+      localJson.set("MYLIST", [9]);
+      expect(localJson.asIntList("myList"), [9]);
+      localJson.asIntList("myList").clear();
+      expect(localJson.containsKey("myList"), isTrue);
+    });
+
+    test("set converts nested Maps inside Iterables to Json5", () {
+      final Json5 localJson = Json5()
+        ..set("items", [
+          {"a": 1},
+          {"b": 2},
+        ]);
+      final List<Json5> itemList = localJson.asJsonList("items");
+      expect(itemList.length, 2);
+      expect(itemList[0]["a"], 1);
+      expect(itemList[1]["b"], 2);
+      expect(localJson.toJsonString(), "{items:[{a:1},{b:2}]}");
+      localJson.set("constItems", const [
+        {"c": 3},
+      ]);
+      expect(localJson.asJsonList("constItems").first["c"], 3);
+    });
+
+    test("Enum keys and values serialize and lookup accurately", () {
+      final Json5 localJson = Json5()..set(_ETestKey.alpha, _ETestKey.beta);
+      expect(localJson[_ETestKey.alpha], _ETestKey.beta);
+      expect(localJson["alpha"], _ETestKey.beta);
+      expect(localJson.toJsonString(), '{alpha:"beta"}');
+    });
+
+    test("Parser supports uppercase 0X hex and rejects invalid hex signs", () {
+      final Json5 hexJson = Json5.fromString("{ a: 0X1A, b: -0X10, c: +0X0F }");
+      expect(hexJson["a"], 26);
+      expect(hexJson["b"], -16);
+      expect(hexJson["c"], 15);
+      expect(() => Json5.fromString("{ bad: 0x-1 }"), throwsA(isA<FormatException>()));
+      expect(() => Json5.fromString("{ bad: 0X+1 }"), throwsA(isA<FormatException>()));
+    });
+
+    test("Parser matches IEEE-754 double precision for floating-point values", () {
+      final Json5 floatJson = Json5.fromString(
+        "{ a: 1.23456789012345, b: 0.0000001, c: .5, d: 5., e: -0.3 }",
+      );
+      expect(floatJson["a"], double.parse("1.23456789012345"));
+      expect(floatJson["b"], double.parse("0.0000001"));
+      expect(floatJson["c"], 0.5);
+      expect(floatJson["d"], 5.0);
+      expect(floatJson["e"], -0.3);
+    });
+
+    test("Parser handles UTF-8 BOM and NBSP as whitespace", () {
+      final Json5 bomJson = Json5.fromString("\uFEFF{ \u00A0key: \u00A042\u00A0 }\uFEFF");
+      expect(bomJson["key"], 42);
+    });
+
+    test("Standalone params placeholder preserves native types", () {
+      final Json5 templated = Json5.fromString(
+        r'''
+        {
+          port: "${params.port}",
+          enabled: "${params.enabled}",
+          nested: "${params.nested}",
+          listWithObj: ["${params.nested}"],
+          interpolated: "http://localhost:${params.port}",
+        }
+        ''',
+        params: {
+          "port": 8080,
+          "enabled": true,
+          "nested": {"host": "127.0.0.1"},
+        },
+      );
+      expect(templated["port"], 8080);
+      expect(templated["enabled"], isTrue);
+      expect(templated.asJson("nested")["host"], "127.0.0.1");
+      expect(templated.asJsonList("listWithObj").first["host"], "127.0.0.1");
+      expect(templated["interpolated"], "http://localhost:8080");
+    });
+
+    test("Strict JSON mode serializes non-finite doubles as null", () {
+      final Json5 numJson = Json5()
+        ..set("nan", double.nan)
+        ..set("inf", double.infinity)
+        ..set("negInf", double.negativeInfinity)
+        ..set("arr", [double.nan, 1.5]);
+      expect(numJson.toJsonString(), "{nan:NaN,inf:Infinity,negInf:-Infinity,arr:[NaN,1.5]}");
+      expect(
+        numJson.toJsonString(json5: false),
+        '{"nan":null,"inf":null,"negInf":null,"arr":[null,1.5]}',
+      );
+      expect(
+        numJson.toFormattedString(json5: false, includeComments: false),
+        contains('"nan": null'),
+      );
+    });
+
+    test(r"$include resolves relative to parent file, forwards options, and detects cycles", () {
+      final Directory tempDir = Directory.systemTemp.createTempSync("json5_include_test_");
+      try {
+        final Directory subDir = Directory("${tempDir.path}/sub")..createSync();
+        File("${subDir.path}/leaf.json5").writeAsStringSync("{ z: 1, a: 2 }");
+        File("${tempDir.path}/main.json5").writeAsStringSync(
+          r'{ included: $include("sub/leaf.json5"), local: true }',
+        );
+        final Json5 loaded = Json5.fromFile(
+          "${tempDir.path}/main.json5",
+          readOnly: true,
+          sortedKeys: true,
+        );
+        expect(loaded.keys.toList(), ["included", "local"]);
+        expect(loaded.asJson("included").keys.toList(), ["a", "z"]);
+        expect(() => loaded.asJson("included")["a"] = 99, throwsA(isA<UnsupportedError>()));
+
+        File("${tempDir.path}/cycA.json5").writeAsStringSync(r'{ b: $include("cycB.json5") }');
+        File("${tempDir.path}/cycB.json5").writeAsStringSync(r'{ a: $include("cycA.json5") }');
+        expect(
+          () => Json5.fromFile("${tempDir.path}/cycA.json5"),
+          throwsA(isA<FormatException>()),
+        );
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test("Deep equality in deepEquals, fromDiffs, and setIfChanged", () {
+      final Json5 a = Json5.fromString("{ nested: { x: 1, list: [1, 2] }, same: 'ok' }");
+      final Json5 b = Json5.fromString("{ nested: { x: 1, list: [1, 2] }, same: 'ok' }");
+      expect(a.deepEquals(b), isTrue);
+      expect(Json5.fromDiffs(a, b).isEmpty, isTrue);
+
+      final Json5 target = Json5()
+        ..setIfChanged("nested", a, Json5.fromString("{ x: 1, list: [1, 2] }"));
+      expect(target.containsKey("nested"), isFalse);
+
+      b.asJson("nested")["x"] = 2;
+      expect(a.deepEquals(b), isFalse);
+      final Json5 diffs = Json5.fromDiffs(a, b);
+      expect(diffs.containsKey("nested"), isTrue);
+      expect(diffs.containsKey("same"), isFalse);
+    });
+
+    test("Key-bound comments stay attached when sortedKeys reorders properties", () {
+      const String input = """
+{
+  // comment for zebra
+  zebra: 1, // inline zebra
+  // comment for apple
+  apple: 2,
+}
+""";
+      final Json5 sorted = Json5.fromString(input, sortedKeys: true);
+      final String formatted = sorted.toFormattedString();
+      final int appleCommentIndex = formatted.indexOf("// comment for apple");
+      final int appleKeyIndex = formatted.indexOf("apple: 2");
+      final int zebraCommentIndex = formatted.indexOf("// comment for zebra");
+      final int zebraKeyIndex = formatted.indexOf("zebra: 1, // inline zebra");
+      expect(appleCommentIndex != -1, isTrue);
+      expect(appleCommentIndex < appleKeyIndex, isTrue);
+      expect(appleKeyIndex < zebraCommentIndex, isTrue);
+      expect(zebraCommentIndex < zebraKeyIndex, isTrue);
+
+      final Json5 cloned = Json5.fromJson5(sorted);
+      expect(cloned.toFormattedString(), formatted);
     });
   });
 }

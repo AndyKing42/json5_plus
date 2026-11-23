@@ -2,7 +2,7 @@
 
 A Dart package for parsing and stringifying JSON5, which is a strict superset of JSON. JSON5 is an extension to the popular JSON file format that aims to be easier to write and maintain by hand (e.g., for config files) by allowing helpful features like unquoted keys, trailing commas, single quotes, and comments.
 
-This package is built with performance in mind, offering parsing speeds that are highly competitive with the default JSON methods found in the standard Dart `dart:convert` library (within about 10% of the performance for 500 character JSON strings using case-sensitive keys, and within 20% of the performance for 64KB JSON strings). Furthermore, it is fully safe for use in Dart web applications, cleanly avoiding the `JSObject` interop issues that can occasionally complicate web-based JSON manipulation.
+This package is built with performance in mind, offering parsing speeds that are highly competitive with the default JSON methods found in the standard Dart `dart:convert` library (based on minimum benchmark times: within about 13% of `dart:convert` for ~365-character JSON strings using case-sensitive keys, and within 19% for 64KB JSON strings). Furthermore, it is fully safe for use in Dart web applications, cleanly avoiding the `JSObject` interop issues that can occasionally complicate web-based JSON manipulation.
 
 ## Why JSON5 Plus?
 
@@ -78,6 +78,15 @@ void main() {
   File('logging.json5').deleteSync();
 }
 ```
+
+## Benchmarks
+
+Minimum parse times from `benchmark/json5_benchmark.dart` (AOT-compiled Windows executable, 10 runs per test):
+
+| Workload | `dart:convert` (`jsonDecode`) | `Json5` (Case-Sensitive) | `Json5` (Case-Insensitive) |
+| :--- | :---: | :---: | :---: |
+| **~365-char payload** (1,000,000 iters) | 3.47 µs (3.47s) | 3.91 µs (3.91s, +13%) | 4.68 µs (4.68s, +35%) |
+| **64KB file (`sample_64kb.json`)** (10,000 iters) | 0.57 ms (5.66s) | 0.67 ms (6.73s, +19%) | 0.74 ms (7.38s, +30%) |
 
 ## Additional information
 

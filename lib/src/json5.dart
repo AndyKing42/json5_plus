@@ -96,7 +96,7 @@ class Json5 with TypedAccessorMixin {
 
   /// The DateTime format used by this object.
   final EDateTimeFormat dateTimeFormat;
-  final Set<String> _ephemeralKeys;
+  Set<String>? _ephemeralKeys;
   final Map<String, dynamic> _keyToValueMap;
 
   /// Indicates whether this Json5 object is read-only.
@@ -106,26 +106,140 @@ class Json5 with TypedAccessorMixin {
   final bool sortedKeys;
 
   //------------------------------------------------------------------------------------------------
-  static dynamic _copyValue(final dynamic value) {
+  static int _caseInsensitiveCompare(String key1, String key2) {
+    final int len = key1.length;
+    final int otherLen = key2.length;
+    final int minLen = len < otherLen ? len : otherLen;
+    for (int i = 0; i < minLen; ++i) {
+      int codeUnit1 = key1.codeUnitAt(i);
+      int codeUnit2 = key2.codeUnitAt(i);
+      if (codeUnit1 != codeUnit2) {
+        if (codeUnit1 > 127 || codeUnit2 > 127) {
+          return key1.toLowerCase().compareTo(key2.toLowerCase());
+        }
+        if (codeUnit1 >= 65 && codeUnit1 <= 90) {
+          codeUnit1 |= 0x20;
+        }
+        if (codeUnit2 >= 65 && codeUnit2 <= 90) {
+          codeUnit2 |= 0x20;
+        }
+        if (codeUnit1 != codeUnit2) {
+          return codeUnit1 - codeUnit2;
+        }
+      }
+    }
+    return len - otherLen;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Internal use.
+  @internal
+  static bool caseInsensitiveKeyEquals(String s1, String s2) {
+    final int len = s1.length;
+    if (len != s2.length) {
+      return false;
+    }
+    for (int i = 0; i < len; ++i) {
+      int codeUnit1 = s1.codeUnitAt(i);
+      int codeUnit2 = s2.codeUnitAt(i);
+      if (codeUnit1 == codeUnit2) {
+        continue;
+      }
+      if (codeUnit1 > 127 || codeUnit2 > 127) {
+        return s1.toLowerCase() == s2.toLowerCase();
+      }
+      if (codeUnit1 >= 65 && codeUnit1 <= 90) {
+        codeUnit1 |= 0x20;
+      }
+      if (codeUnit2 >= 65 && codeUnit2 <= 90) {
+        codeUnit2 |= 0x20;
+      }
+      if (codeUnit1 != codeUnit2) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Internal use.
+  @internal
+  static int caseInsensitiveKeyHashCode(String stringValue) {
+    int hash = 0;
+    final int len = stringValue.length;
+    for (int i = 0; i < len; ++i) {
+      int codeUnit = stringValue.codeUnitAt(i);
+      if (codeUnit > 127) {
+        return stringValue.toLowerCase().hashCode;
+      }
+      if (codeUnit >= 65 && codeUnit <= 90) {
+        codeUnit |= 0x20;
+      }
+      hash = 0x1fff_ffff & (hash + codeUnit);
+      hash = 0x1fff_ffff & (hash + ((0x0007_ffff & hash) << 10));
+      hash ^= hash >> 6;
+    }
+    return hash;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  static int _caseSensitiveCompare(String key1, String key2) => key1.compareTo(key2);
+
+  //------------------------------------------------------------------------------------------------
+  static dynamic _copyValue(
+    final dynamic value, {
+    required bool readOnly,
+    Json5CommentRegistry? sourceRegistry,
+    Json5CommentRegistry? targetRegistry,
+  }) {
     if (value is Json5) {
-      return Json5.fromJson5(
-        value,
+      final Json5 copy = Json5(
         caseSensitiveKeys: value.caseSensitiveKeys,
         dateTimeFormat: value.dateTimeFormat,
+        readOnly: readOnly,
         sortedKeys: value.sortedKeys,
-      );
+      ).._setFromJsonInternal(value, targetRegistry: targetRegistry);
+      if (targetRegistry != null) {
+        copy._commentRegistry = targetRegistry;
+        sourceRegistry?.copyContainerCommentsTo(value, copy, targetRegistry);
+      }
+      return copy;
     } else if (value is List<dynamic>) {
       final List<dynamic> resultList = [];
       for (final Object? item in value) {
-        resultList.add(_copyValue(item));
+        resultList.add(
+          _copyValue(
+            item,
+            readOnly: readOnly,
+            sourceRegistry: sourceRegistry,
+            targetRegistry: targetRegistry,
+          ),
+        );
+      }
+      if (readOnly) {
+        final List<dynamic> unmodifiableList = UnmodifiableListView<dynamic>(resultList);
+        if (targetRegistry != null) {
+          sourceRegistry?.copyContainerCommentsTo(value, unmodifiableList, targetRegistry);
+        }
+        return unmodifiableList;
+      }
+      if (targetRegistry != null) {
+        sourceRegistry?.copyContainerCommentsTo(value, resultList, targetRegistry);
       }
       return resultList;
     } else if (value is Set<dynamic>) {
       final Set<dynamic> resultSet = {};
       for (final Object? item in value) {
-        resultSet.add(_copyValue(item));
+        resultSet.add(
+          _copyValue(
+            item,
+            readOnly: readOnly,
+            sourceRegistry: sourceRegistry,
+            targetRegistry: targetRegistry,
+          ),
+        );
       }
-      return resultSet;
+      return readOnly ? UnmodifiableSetView<dynamic>(resultSet) : resultSet;
     }
     return value;
   }
@@ -150,35 +264,98 @@ class Json5 with TypedAccessorMixin {
   );
 
   //------------------------------------------------------------------------------------------------
-  /// Escapes special characters (control characters, quotes, backslashes) in [originalValue] for
-  /// JSON/JSON5 string output.
-  static String escapeString(String originalValue) {
-    StringBuffer? buffer;
-    for (int charIndex = 0; charIndex < originalValue.length; ++charIndex) {
-      final int codeUnit = originalValue.codeUnitAt(charIndex);
-      final String? escapedValue = _escapedCodeUnitMap[codeUnit];
-      if (escapedValue != null) {
-        buffer ??= StringBuffer(originalValue.substring(0, charIndex));
-        buffer.write(escapedValue);
-      } else if (codeUnit < 32) {
-        buffer ??= StringBuffer(originalValue.substring(0, charIndex));
-        buffer.write("\\u${codeUnit.toRadixString(16).padLeft(4, '0')}");
-      } else {
-        buffer?.writeCharCode(codeUnit);
-      }
+  static bool _deepEquals(dynamic valueA, dynamic valueB) {
+    if (identical(valueA, valueB)) {
+      return true;
     }
-    return buffer?.toString() ?? originalValue;
+    if (valueA is Json5 && valueB is Json5) {
+      if (valueA.length != valueB.length) {
+        return false;
+      }
+      for (final String mapKey in valueA.keys) {
+        if (!valueB.containsKey(mapKey)) {
+          return false;
+        }
+        if (!_deepEquals(valueA.asType(mapKey), valueB.asType(mapKey))) {
+          return false;
+        }
+      }
+      if (valueA.caseSensitiveKeys != valueB.caseSensitiveKeys) {
+        for (final String mapKey in valueB.keys) {
+          if (!valueA.containsKey(mapKey)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+    if (valueA is Map<dynamic, dynamic> && valueB is Map<dynamic, dynamic>) {
+      if (valueA.length != valueB.length) {
+        return false;
+      }
+      for (final Object? mapKey in valueA.keys) {
+        if (!valueB.containsKey(mapKey)) {
+          return false;
+        }
+        if (!_deepEquals(valueA[mapKey], valueB[mapKey])) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (valueA is Iterable<dynamic> && valueB is Iterable<dynamic>) {
+      if (valueA.length != valueB.length) {
+        return false;
+      }
+      final Iterator<dynamic> iteratorA = valueA.iterator;
+      final Iterator<dynamic> iteratorB = valueB.iterator;
+      while (iteratorA.moveNext() && iteratorB.moveNext()) {
+        if (!_deepEquals(iteratorA.current, iteratorB.current)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return valueA == valueB;
   }
 
   //------------------------------------------------------------------------------------------------
-  static String _formatKey(String key, {required bool json5}) {
-    if (json5 && _isIdentifier(key)) {
-      return key;
+  /// Escapes special characters (control characters, quotes, backslashes) in [originalValue] for
+  /// JSON/JSON5 string output.
+  static String escapeString(String originalValue) {
+    final int length = originalValue.length;
+    for (int charIndex = 0; charIndex < length; ++charIndex) {
+      final int codeUnit = originalValue.codeUnitAt(charIndex);
+      if (codeUnit >= 32 && codeUnit != 34 && codeUnit != 92) {
+        continue;
+      }
+      final StringBuffer buffer = StringBuffer();
+      if (charIndex > 0) {
+        buffer.write(originalValue.substring(0, charIndex));
+      }
+      _writeEscapedString(buffer, originalValue, startIndex: charIndex);
+      return buffer.toString();
     }
-    if (!json5 && _isIdentifier(key)) {
-      return '"$key"';
+    return originalValue;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Internal use.
+  @internal
+  static bool isBlankString(String value) {
+    final int length = value.length;
+    for (int i = 0; i < length; ++i) {
+      final int codeUnit = value.codeUnitAt(i);
+      if (codeUnit > 32 &&
+          (codeUnit < 0x00A0 ||
+              (codeUnit != 0x00A0 &&
+                  codeUnit != 0x2028 &&
+                  codeUnit != 0x2029 &&
+                  codeUnit != 0xFEFF))) {
+        return false;
+      }
     }
-    return '"${escapeString(key)}"';
+    return true;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -208,6 +385,32 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  static bool _isValidSplayKey(Object? potentialKey) => potentialKey is String;
+
+  //------------------------------------------------------------------------------------------------
+  /// Internal use.
+  @internal
+  static Json5 loadIncludeFile({
+    String? baseFilePath,
+    required bool caseSensitiveKeys,
+    required EDateTimeFormat dateTimeFormat,
+    Set<String>? includePathSet,
+    Map<String, dynamic>? params,
+    required String path,
+    required bool readOnly,
+    required bool sortedKeys,
+  }) => io.fromFile(
+    baseFilePath: baseFilePath,
+    caseSensitiveKeys: caseSensitiveKeys,
+    dateTimeFormat: dateTimeFormat,
+    includePathSet: includePathSet,
+    params: params,
+    path: path,
+    readOnly: readOnly,
+    sortedKeys: sortedKeys,
+  );
+
+  //------------------------------------------------------------------------------------------------
   /// Decodes any JSON5 string into its dynamic Dart representation (which could be a Json5 object,
   /// List, String, num, bool, or null).
   static dynamic parseAny(
@@ -227,6 +430,64 @@ class Json5 with TypedAccessorMixin {
   );
 
   //------------------------------------------------------------------------------------------------
+  static void _writeEscapedString(
+    StringBuffer buffer,
+    String originalValue, {
+    int startIndex = 0,
+  }) {
+    int lastCopiedIndex = startIndex;
+    final int length = originalValue.length;
+    for (int charIndex = startIndex; charIndex < length; ++charIndex) {
+      final int codeUnit = originalValue.codeUnitAt(charIndex);
+      if (codeUnit >= 32 && codeUnit != 34 && codeUnit != 92) {
+        continue;
+      }
+      if (charIndex > lastCopiedIndex) {
+        buffer.write(originalValue.substring(lastCopiedIndex, charIndex));
+      }
+      final String? escapedValue = _escapedCodeUnitMap[codeUnit];
+      if (escapedValue != null) {
+        buffer.write(escapedValue);
+      } else {
+        buffer.write("\\u${codeUnit.toRadixString(16).padLeft(4, '0')}");
+      }
+      lastCopiedIndex = charIndex + 1;
+    }
+    if (lastCopiedIndex == 0) {
+      buffer.write(originalValue);
+    } else if (lastCopiedIndex < length) {
+      buffer.write(originalValue.substring(lastCopiedIndex));
+    }
+  }
+
+  //------------------------------------------------------------------------------------------------
+  static void _writeKey(StringBuffer buffer, String key, {required bool json5}) {
+    if (_isIdentifier(key)) {
+      if (json5) {
+        buffer.write(key);
+      } else {
+        buffer
+          ..write('"')
+          ..write(key)
+          ..write('"');
+      }
+      return;
+    }
+    buffer.write('"');
+    _writeEscapedString(buffer, key);
+    buffer.write('"');
+  }
+
+  //------------------------------------------------------------------------------------------------
+  static void _writeNum(StringBuffer buffer, num value, {required bool json5}) {
+    if (!json5 && !value.isFinite) {
+      buffer.write("null");
+    } else {
+      buffer.write(value);
+    }
+  }
+
+  //------------------------------------------------------------------------------------------------
   /// Creates a new [Json5] object containing entries from [json2] that do not match the values
   /// from [json1].
   factory Json5.fromDiffs(
@@ -243,9 +504,9 @@ class Json5 with TypedAccessorMixin {
       readOnly: readOnly,
       sortedKeys: sortedKeys ?? json2.sortedKeys,
     );
-    for (final MapEntry<String, dynamic> entry in json2._keyToValueMap.entries) {
-      if (json1._keyToValueMap[entry.key] != entry.value) {
-        result.set(entry.key, _copyValue(entry.value));
+    for (final MapEntry<String, dynamic> entry in json2.entries) {
+      if (!_deepEquals(json1.asType(entry.key), entry.value)) {
+        result._setInternal(entry.key, _copyValue(entry.value, readOnly: readOnly));
       }
     }
     return result;
@@ -277,12 +538,22 @@ class Json5 with TypedAccessorMixin {
     EDateTimeFormat? dateTimeFormat,
     bool readOnly = false,
     bool? sortedKeys,
-  }) => Json5(
-    caseSensitiveKeys: caseSensitiveKeys ?? json5.caseSensitiveKeys,
-    dateTimeFormat: dateTimeFormat ?? json5.dateTimeFormat,
-    readOnly: readOnly,
-    sortedKeys: sortedKeys ?? json5.sortedKeys,
-  )..setFromJson(json5);
+  }) {
+    final Json5CommentRegistry? targetRegistry = json5._commentRegistry != null
+        ? Json5CommentRegistry()
+        : null;
+    final Json5 copy = Json5(
+      caseSensitiveKeys: caseSensitiveKeys ?? json5.caseSensitiveKeys,
+      dateTimeFormat: dateTimeFormat ?? json5.dateTimeFormat,
+      readOnly: readOnly,
+      sortedKeys: sortedKeys ?? json5.sortedKeys,
+    ).._setFromJsonInternal(json5, targetRegistry: targetRegistry);
+    if (targetRegistry != null) {
+      json5._commentRegistry!.copyContainerCommentsTo(json5, copy, targetRegistry);
+      copy._commentRegistry = targetRegistry;
+    }
+    return copy;
+  }
 
   //------------------------------------------------------------------------------------------------
   /// Creates a Json5 object from a list of keys and a list of values. The values are lined up
@@ -299,7 +570,7 @@ class Json5 with TypedAccessorMixin {
     dateTimeFormat: dateTimeFormat,
     readOnly: readOnly,
     sortedKeys: sortedKeys,
-  )..setFromKeyAndValueLists(keyList, valueList);
+  ).._setFromKeyAndValueListsInternal(keyList, valueList);
 
   //------------------------------------------------------------------------------------------------
   /// Creates a Json5 object from a map of keys to indexes and a list of values. The indexes
@@ -316,7 +587,7 @@ class Json5 with TypedAccessorMixin {
     dateTimeFormat: dateTimeFormat,
     readOnly: readOnly,
     sortedKeys: sortedKeys,
-  )..setFromKeyToIndexAndValueList(keyToIndexMap, valueList);
+  ).._setFromKeyToIndexAndValueListInternal(keyToIndexMap, valueList);
 
   //------------------------------------------------------------------------------------------------
   /// Creates a Json5 object from a Map.
@@ -331,7 +602,7 @@ class Json5 with TypedAccessorMixin {
     dateTimeFormat: dateTimeFormat,
     readOnly: readOnly,
     sortedKeys: sortedKeys,
-  )..addAll(jsonMap);
+  ).._setFromMapInternal(jsonMap);
 
   //------------------------------------------------------------------------------------------------
   /// Decodes a JSON5 string into a Json5 object.
@@ -345,7 +616,7 @@ class Json5 with TypedAccessorMixin {
     bool? sortedKeys,
   }) {
     final bool effectiveAllowBlank = allowBlankString ?? defaultAllowBlankString;
-    if (jsonString.trim().isEmpty) {
+    if (isBlankString(jsonString)) {
       if (effectiveAllowBlank) {
         return Json5(
           caseSensitiveKeys: caseSensitiveKeys,
@@ -376,63 +647,17 @@ class Json5 with TypedAccessorMixin {
     bool? sortedKeys,
   }) : dateTimeFormat = dateTimeFormat ?? defaultDateTimeFormat,
        sortedKeys = sortedKeys ?? defaultUseSortedKeys,
-       _ephemeralKeys = {},
+       _ephemeralKeys = null,
        _keyToValueMap = (sortedKeys ?? defaultUseSortedKeys)
            ? SplayTreeMap<String, dynamic>(
-               caseSensitiveKeys
-                   ? (String key1, String key2) => key1.compareTo(key2)
-                   : (String key1, String key2) {
-                       final int compareResult = key1.toLowerCase().compareTo(key2.toLowerCase());
-                       return compareResult == 0 ? 0 : compareResult;
-                     },
-               (Object? potentialKey) => potentialKey is String,
+               caseSensitiveKeys ? _caseSensitiveCompare : _caseInsensitiveCompare,
+               _isValidSplayKey,
              )
            : caseSensitiveKeys
            ? <String, dynamic>{}
            : LinkedHashMap<String, dynamic>(
-               equals: (String s1, String s2) {
-                 final int len = s1.length;
-                 if (len != s2.length) {
-                   return false;
-                 }
-                 for (int i = 0; i < len; ++i) {
-                   int codeUnit1 = s1.codeUnitAt(i);
-                   int codeUnit2 = s2.codeUnitAt(i);
-                   if (codeUnit1 == codeUnit2) {
-                     continue;
-                   }
-                   if (codeUnit1 > 127 || codeUnit2 > 127) {
-                     return s1.toLowerCase() == s2.toLowerCase();
-                   }
-                   if (codeUnit1 >= 65 && codeUnit1 <= 90) {
-                     codeUnit1 |= 0x20;
-                   }
-                   if (codeUnit2 >= 65 && codeUnit2 <= 90) {
-                     codeUnit2 |= 0x20;
-                   }
-                   if (codeUnit1 != codeUnit2) {
-                     return false;
-                   }
-                 }
-                 return true;
-               },
-               hashCode: (String stringValue) {
-                 int hash = 0;
-                 final int len = stringValue.length;
-                 for (int i = 0; i < len; ++i) {
-                   int codeUnit = stringValue.codeUnitAt(i);
-                   if (codeUnit > 127) {
-                     return stringValue.toLowerCase().hashCode;
-                   }
-                   if (codeUnit >= 65 && codeUnit <= 90) {
-                     codeUnit |= 0x20;
-                   }
-                   hash = 0x1fff_ffff & (hash + codeUnit);
-                   hash = 0x1fff_ffff & (hash + ((0x0007_ffff & hash) << 10));
-                   hash ^= hash >> 6;
-                 }
-                 return hash;
-               },
+               equals: caseInsensitiveKeyEquals,
+               hashCode: caseInsensitiveKeyHashCode,
              );
 
   //------------------------------------------------------------------------------------------------
@@ -443,14 +668,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Adds all entries from a [Map] to this Json5 object.
   void addAll(Map<dynamic, dynamic>? jsonMap) {
-    assert(!readOnly, "Cannot add entries to a read-only JSON");
+    _checkMutable();
     if (jsonMap == null || jsonMap.isEmpty) {
       return;
     }
     for (final MapEntry<dynamic, dynamic> entry in jsonMap.entries) {
       set(entry.key, entry.value);
     }
-    _convertMap();
   }
 
   //------------------------------------------------------------------------------------------------
@@ -559,7 +783,7 @@ class Json5 with TypedAccessorMixin {
 
   //------------------------------------------------------------------------------------------------
   /// Returns the [Json5] object for [key].
-  Json5 asJson(final dynamic key) => _keyToValueMap[_getKey(key)] as Json5? ?? emptyJson;
+  Json5 asJson(final dynamic key) => asType(key) as Json5? ?? emptyJson;
 
   //------------------------------------------------------------------------------------------------
   /// Returns the list of [Json5] values for [key].
@@ -572,8 +796,7 @@ class Json5 with TypedAccessorMixin {
 
   //------------------------------------------------------------------------------------------------
   /// Returns the [Json5] object for [key], or `null` if [key] is missing or null.
-  Json5? asJsonOrNull(final dynamic key) =>
-      containsKey(key) ? _keyToValueMap[_getKey(key)] as Json5? : null;
+  Json5? asJsonOrNull(final dynamic key) => asType(key) as Json5?;
 
   //------------------------------------------------------------------------------------------------
   /// Returns the set of [Json5] values for [key].
@@ -609,13 +832,26 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   @override
   @internal
-  dynamic asType(dynamic key) => _keyToValueMap[_getKey(key)];
+  dynamic asType(dynamic key) {
+    final String localKey = _getKey(key);
+    if (_isEphemeral(localKey)) {
+      return null;
+    }
+    return _keyToValueMap[localKey];
+  }
+
+  //------------------------------------------------------------------------------------------------
+  void _checkMutable() {
+    if (readOnly) {
+      throw UnsupportedError("Cannot modify a read-only Json5 object");
+    }
+  }
 
   //------------------------------------------------------------------------------------------------
   /// Clears all entries from this Json5 object.
   void clear() {
-    assert(!readOnly, "Cannot clear a read-only JSON");
-    _ephemeralKeys.clear();
+    _checkMutable();
+    _ephemeralKeys?.clear();
     _keyToValueMap.clear();
   }
 
@@ -668,39 +904,74 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
-  void _convertIterable(Iterable<dynamic> iterable) {
-    if (iterable is List<dynamic>) {
-      for (int listIndex = 0; listIndex < iterable.length; ++listIndex) {
-        switch (iterable[listIndex]) {
-          case Map<dynamic, dynamic> mapValue:
-            iterable[listIndex] = Json5.fromMap(
-              mapValue,
-              caseSensitiveKeys: caseSensitiveKeys,
-              sortedKeys: sortedKeys,
-            );
-          case Iterable<dynamic> iterableValue:
-            _convertIterable(iterableValue);
-        }
-      }
-    } else if (iterable is Set<dynamic>) {
-      final List<dynamic> toReplace = [];
-      for (final Object? item in iterable) {
-        if (item is Map<dynamic, dynamic> || item is Iterable<dynamic>) {
-          toReplace.add(item);
-        }
-      }
-      for (final dynamic item in toReplace) {
-        iterable.remove(item);
-        if (item is Map<dynamic, dynamic>) {
-          iterable.add(
-            Json5.fromMap(item, caseSensitiveKeys: caseSensitiveKeys, sortedKeys: sortedKeys),
-          );
-        } else if (item is Iterable<dynamic>) {
-          _convertIterable(item);
-          iterable.add(item);
-        }
-      }
+  Iterable<dynamic> _convertIterable(Iterable<dynamic> iterable, {bool freeze = false}) {
+    if (!freeze &&
+        (iterable is List<int> ||
+            iterable is List<double> ||
+            iterable is List<String> ||
+            iterable is List<bool> ||
+            iterable is List<Json5> ||
+            iterable is Set<int> ||
+            iterable is Set<double> ||
+            iterable is Set<String> ||
+            iterable is Set<bool> ||
+            iterable is Set<Json5>)) {
+      return iterable;
     }
+    if (iterable is Set<dynamic>) {
+      Set<dynamic>? convertedSet;
+      int itemIndex = 0;
+      for (final Object? item in iterable) {
+        final Object? convertedItem = _convertNestedCollectionItem(item, freeze: freeze);
+        if (!identical(convertedItem, item) && convertedSet == null) {
+          convertedSet = <dynamic>{};
+          int copyIndex = 0;
+          for (final Object? priorItem in iterable) {
+            if (copyIndex >= itemIndex) {
+              break;
+            }
+            convertedSet.add(priorItem);
+            ++copyIndex;
+          }
+        }
+        convertedSet?.add(convertedItem);
+        ++itemIndex;
+      }
+      final Set<dynamic> resultSet = convertedSet ?? iterable;
+      return freeze ? UnmodifiableSetView<dynamic>(resultSet) : resultSet;
+    }
+    List<dynamic>? convertedList;
+    int itemIndex = 0;
+    for (final Object? item in iterable) {
+      final Object? convertedItem = _convertNestedCollectionItem(item, freeze: freeze);
+      if (!identical(convertedItem, item) && convertedList == null) {
+        convertedList = <dynamic>[];
+        int copyIndex = 0;
+        for (final Object? priorItem in iterable) {
+          if (copyIndex >= itemIndex) {
+            break;
+          }
+          convertedList.add(priorItem);
+          ++copyIndex;
+        }
+      }
+      convertedList?.add(convertedItem);
+      ++itemIndex;
+    }
+    final Iterable<dynamic> resultIterable = convertedList ?? iterable;
+    if (freeze) {
+      final List<dynamic> listForView;
+      if (resultIterable is List<dynamic>) {
+        listForView = resultIterable;
+      } else {
+        listForView = <dynamic>[];
+        for (final Object? item in resultIterable) {
+          listForView.add(item);
+        }
+      }
+      return UnmodifiableListView<dynamic>(listForView);
+    }
+    return resultIterable;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -713,21 +984,19 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
-  void _convertMap() {
-    for (final MapEntry<String, dynamic> entry in _keyToValueMap.entries) {
-      final String key = entry.key;
-      switch (entry.value) {
-        case Map<dynamic, dynamic> mapValue:
-          _keyToValueMap[key] = Json5.fromMap(
-            mapValue,
-            caseSensitiveKeys: caseSensitiveKeys,
-            sortedKeys: sortedKeys,
-          );
-        case Iterable<dynamic> iterableValue:
-          _convertIterable(iterableValue);
-      }
-    }
-  }
+  dynamic _convertNestedCollectionItem(dynamic item, {required bool freeze}) => switch (item) {
+    Json5 jsonValue =>
+      freeze && !jsonValue.readOnly ? Json5.fromJson5(jsonValue, readOnly: true) : jsonValue,
+    Map<dynamic, dynamic> mapValue => Json5.fromMap(
+      mapValue,
+      caseSensitiveKeys: caseSensitiveKeys,
+      dateTimeFormat: dateTimeFormat,
+      readOnly: freeze,
+      sortedKeys: sortedKeys,
+    ),
+    Iterable<dynamic> iterableValue => _convertIterable(iterableValue, freeze: freeze),
+    _ => item,
+  };
 
   //------------------------------------------------------------------------------------------------
   void _convertStrings(Iterable<dynamic> source, void Function(String) add) {
@@ -739,11 +1008,22 @@ class Json5 with TypedAccessorMixin {
   }
 
   //------------------------------------------------------------------------------------------------
+  Set<String> _createEphemeralKeys() => caseSensitiveKeys
+      ? <String>{}
+      : LinkedHashSet<String>(
+          equals: caseInsensitiveKeyEquals,
+          hashCode: caseInsensitiveKeyHashCode,
+        );
+
+  //------------------------------------------------------------------------------------------------
+  /// Returns `true` if this object and [other] have deeply equal keys and values.
+  bool deepEquals(Json5 other) => _deepEquals(this, other);
+
+  //------------------------------------------------------------------------------------------------
   void _formatEntry({
     required StringBuffer buffer,
     required Object container,
     required bool includeComments,
-    required int index,
     required bool json5,
     required String key,
     required int level,
@@ -756,20 +1036,19 @@ class Json5 with TypedAccessorMixin {
       buffer: buffer,
       container: container,
       includeComments: includeComments,
-      index: index,
+      keyOrIndex: key,
       level: level,
       location: ECommentLocation.beforeColon,
       registry: registry,
       skipPrecedingNewline: true,
     );
-    buffer
-      ..write(_formatKey(key, json5: json5))
-      ..write(":");
+    _writeKey(buffer, key, json5: json5);
+    buffer.write(":");
     _writeComments(
       buffer: buffer,
       container: container,
       includeComments: includeComments,
-      index: index,
+      keyOrIndex: key,
       level: level,
       location: ECommentLocation.afterColon,
       registry: registry,
@@ -796,17 +1075,17 @@ class Json5 with TypedAccessorMixin {
         registry: registry,
       );
     } else if (value is String) {
-      buffer
-        ..write('"')
-        ..write(escapeString(value))
-        ..write('"');
-    } else if (value is num || value is bool || value == null) {
+      buffer.write('"');
+      _writeEscapedString(buffer, value);
+      buffer.write('"');
+    } else if (value is num) {
+      _writeNum(buffer, value, json5: json5);
+    } else if (value is bool || value == null) {
       buffer.write(value);
     } else {
-      buffer
-        ..write('"')
-        ..write(escapeString(value.toString()))
-        ..write('"');
+      buffer.write('"');
+      _writeEscapedString(buffer, value.toString());
+      buffer.write('"');
     }
   }
 
@@ -829,7 +1108,7 @@ class Json5 with TypedAccessorMixin {
       buffer: buffer,
       container: container,
       includeComments: includeComments,
-      index: 0,
+      keyOrIndex: 0,
       level: level + 1,
       location: ECommentLocation.standaloneBefore,
       registry: registry,
@@ -865,9 +1144,12 @@ class Json5 with TypedAccessorMixin {
         case String stringValue:
           buffer
             ..write(prefix)
-            ..write('"')
-            ..write(escapeString(stringValue))
             ..write('"');
+          _writeEscapedString(buffer, stringValue);
+          buffer.write('"');
+        case num numValue:
+          buffer.write(prefix);
+          _writeNum(buffer, numValue, json5: json5);
         default:
           buffer
             ..write(prefix)
@@ -878,7 +1160,7 @@ class Json5 with TypedAccessorMixin {
         buffer: buffer,
         container: container,
         includeComments: includeComments,
-        index: i,
+        keyOrIndex: i,
         level: level + 1,
         location: ECommentLocation.beforeComma,
         registry: registry,
@@ -887,19 +1169,19 @@ class Json5 with TypedAccessorMixin {
         buffer: buffer,
         container: container,
         includeComments: includeComments,
-        index: i,
+        keyOrIndex: i,
         level: level + 1,
         location: ECommentLocation.afterComma,
         registry: registry,
       );
       buffer.writeln();
-      i++;
+      ++i;
     }
     _writeComments(
       buffer: buffer,
       container: container,
       includeComments: includeComments,
-      index: length,
+      keyOrIndex: length,
       level: level + 1,
       location: ECommentLocation.standaloneAfter,
       registry: registry,
@@ -925,7 +1207,34 @@ class Json5 with TypedAccessorMixin {
       mapKeys = container.keys;
     }
     if (mapKeys.isEmpty) {
-      buffer.write("{}");
+      final List<Json5Comment>? emptyComments = includeComments && registry != null
+          ? registry.getComments(
+              container,
+              Json5CommentRegistry.trailingKey,
+              ECommentLocation.standaloneAfter,
+            )
+          : null;
+      if (emptyComments == null || emptyComments.isEmpty) {
+        buffer.write("{}");
+        return;
+      }
+      buffer
+        ..write("{")
+        ..writeln();
+      _writeComments(
+        buffer: buffer,
+        container: container,
+        includeComments: includeComments,
+        keyOrIndex: Json5CommentRegistry.trailingKey,
+        level: level + 1,
+        location: ECommentLocation.standaloneAfter,
+        registry: registry,
+        skipPrecedingNewline: true,
+      );
+      buffer
+        ..writeln()
+        ..write("  " * level)
+        ..write("}");
       return;
     }
     buffer.write("{");
@@ -933,20 +1242,41 @@ class Json5 with TypedAccessorMixin {
       buffer: buffer,
       container: container,
       includeComments: includeComments,
-      index: 0,
+      keyOrIndex: Json5CommentRegistry.trailingKey,
       level: level + 1,
       location: ECommentLocation.standaloneBefore,
       registry: registry,
     );
     buffer.writeln();
-    final List<String> sortedKeyList = mapKeys.toList();
+    final List<String> sortedKeyList = <String>[];
+    for (final String mapKey in mapKeys) {
+      sortedKeyList.add(mapKey);
+    }
+    final String indent = "  " * (level + 1);
     for (int i = 0; i < sortedKeyList.length; ++i) {
       final String key = sortedKeyList[i];
+      final List<Json5Comment>? beforeKeyCommentList = includeComments && registry != null
+          ? registry.getComments(container, key, ECommentLocation.beforeKey)
+          : null;
+      if (beforeKeyCommentList != null) {
+        for (int commentIndex = 0; commentIndex < beforeKeyCommentList.length; ++commentIndex) {
+          final Json5Comment comment = beforeKeyCommentList[commentIndex];
+          if (commentIndex == 0 || comment.precededByNewline) {
+            if (commentIndex > 0) {
+              buffer.writeln();
+            }
+            buffer.write(indent);
+          } else {
+            buffer.write(" ");
+          }
+          buffer.write(comment.comment);
+        }
+        buffer.writeln();
+      }
       _formatEntry(
         buffer: buffer,
         container: container,
         includeComments: includeComments,
-        index: i,
         json5: json5,
         key: key,
         level: level + 1,
@@ -958,7 +1288,7 @@ class Json5 with TypedAccessorMixin {
         buffer: buffer,
         container: container,
         includeComments: includeComments,
-        index: i,
+        keyOrIndex: key,
         level: level + 1,
         location: ECommentLocation.beforeComma,
         registry: registry,
@@ -967,7 +1297,7 @@ class Json5 with TypedAccessorMixin {
         buffer: buffer,
         container: container,
         includeComments: includeComments,
-        index: i,
+        keyOrIndex: key,
         level: level + 1,
         location: ECommentLocation.afterComma,
         registry: registry,
@@ -978,7 +1308,7 @@ class Json5 with TypedAccessorMixin {
       buffer: buffer,
       container: container,
       includeComments: includeComments,
-      index: sortedKeyList.length,
+      keyOrIndex: Json5CommentRegistry.trailingKey,
       level: level + 1,
       location: ECommentLocation.standaloneAfter,
       registry: registry,
@@ -991,20 +1321,21 @@ class Json5 with TypedAccessorMixin {
 
   //------------------------------------------------------------------------------------------------
   /// Returns the key/value entries for this Json5 object.
-  Iterable<MapEntry<String, dynamic>> get entries => _ephemeralKeys.isEmpty
+  Iterable<MapEntry<String, dynamic>> get entries => _ephemeralKeys == null || _ephemeralKeys!.isEmpty
       ? _keyToValueMap.entries
       : _keyToValueMap.entries.where((e) => !_isEphemeral(e.key));
 
   //------------------------------------------------------------------------------------------------
   bool _isEphemeral(String key) {
-    if (!_ephemeralKeys.contains(key)) return false;
+    if (_ephemeralKeys == null || !_ephemeralKeys!.contains(key)) return false;
     final dynamic value = _keyToValueMap[key];
     return value is Iterable<dynamic> && value.isEmpty;
   }
 
   //------------------------------------------------------------------------------------------------
   /// Returns true if this Json5 object is empty.
-  bool get isEmpty => _ephemeralKeys.isEmpty ? _keyToValueMap.isEmpty : keys.isEmpty;
+  bool get isEmpty =>
+      _ephemeralKeys == null || _ephemeralKeys!.isEmpty ? _keyToValueMap.isEmpty : keys.isEmpty;
 
   //------------------------------------------------------------------------------------------------
   /// Returns true if this Json5 object is not empty.
@@ -1015,13 +1346,16 @@ class Json5 with TypedAccessorMixin {
     if (key is String) {
       return key;
     }
-    String keyString = key.toString();
+    if (key is Enum) {
+      return key.name;
+    }
+    final String keyString = key.toString();
     return keyString.substring(keyString.lastIndexOf(".") + 1);
   }
 
   //------------------------------------------------------------------------------------------------
   /// Returns the keys for this Json5 object.
-  Iterable<String> get keys => _ephemeralKeys.isEmpty
+  Iterable<String> get keys => _ephemeralKeys == null || _ephemeralKeys!.isEmpty
       ? _keyToValueMap.keys
       : _keyToValueMap.keys.where((k) => !_isEphemeral(k));
 
@@ -1054,7 +1388,7 @@ class Json5 with TypedAccessorMixin {
     if (!readOnly) {
       result = <ElementType>[];
       _keyToValueMap[localKey] = result;
-      _ephemeralKeys.add(localKey);
+      (_ephemeralKeys ??= _createEphemeralKeys()).add(localKey);
       return result;
     }
     return emptyCollection;
@@ -1085,7 +1419,7 @@ class Json5 with TypedAccessorMixin {
     if (!readOnly) {
       result = <ElementType>{};
       _keyToValueMap[localKey] = result;
-      _ephemeralKeys.add(localKey);
+      (_ephemeralKeys ??= _createEphemeralKeys()).add(localKey);
       return result;
     }
     return emptyCollection;
@@ -1094,9 +1428,9 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the entry for [key] and returns its value.
   dynamic remove(dynamic key) {
-    assert(!readOnly, "Cannot remove entries from a read-only JSON");
-    String localKey = _getKey(key);
-    _ephemeralKeys.remove(localKey);
+    _checkMutable();
+    final String localKey = _getKey(key);
+    _ephemeralKeys?.remove(localKey);
     return _keyToValueMap.remove(localKey);
   }
 
@@ -1119,11 +1453,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of [bool] elements, or `null` if [key] is missing or null.
   List<bool>? removeBoolListOrNull(final dynamic key) {
-    final List<bool>? result = asBoolListOrNull(key) == null
-        ? null
-        : List<bool>.of(asBoolList(key));
+    final List<bool>? boolList = asBoolListOrNull(key);
+    if (boolList == null) {
+      return null;
+    }
+    final List<bool> resultList = List<bool>.of(boolList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1145,9 +1481,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of [bool] elements, or `null` if [key] is missing or null.
   Set<bool>? removeBoolSetOrNull(final dynamic key) {
-    final Set<bool>? result = asBoolSetOrNull(key) == null ? null : Set<bool>.of(asBoolSet(key));
+    final Set<bool>? boolSet = asBoolSetOrNull(key);
+    if (boolSet == null) {
+      return null;
+    }
+    final Set<bool> resultSet = Set<bool>.of(boolSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1169,11 +1509,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of [DateTime] elements, or `null` if [key] is missing or null.
   List<DateTime>? removeDateTimeListOrNull(final dynamic key) {
-    final List<DateTime>? result = asDateTimeListOrNull(key) == null
-        ? null
-        : List<DateTime>.of(asDateTimeList(key));
+    final List<DateTime>? dateTimeList = asDateTimeListOrNull(key);
+    if (dateTimeList == null) {
+      return null;
+    }
+    final List<DateTime> resultList = List<DateTime>.of(dateTimeList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1195,17 +1537,19 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of [DateTime] elements, or `null` if [key] is missing or null.
   Set<DateTime>? removeDateTimeSetOrNull(final dynamic key) {
-    final Set<DateTime>? result = asDateTimeSetOrNull(key) == null
-        ? null
-        : Set<DateTime>.of(asDateTimeSet(key));
+    final Set<DateTime>? dateTimeSet = asDateTimeSetOrNull(key);
+    if (dateTimeSet == null) {
+      return null;
+    }
+    final Set<DateTime> resultSet = Set<DateTime>.of(dateTimeSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
   /// Removes the entry for [key] and returns its UTC date/time representation.
-  DateTime removeDateTimeUtc(final dynamic key, [final DateTime? defaultValue]) {
-    final DateTime result = asDateTimeUtc(key, defaultValue);
+  DateTime removeDateTimeUtc(final dynamic key, {final DateTime? defaultValue}) {
+    final DateTime result = asDateTimeUtc(key, defaultValue: defaultValue);
     remove(key);
     return result;
   }
@@ -1237,11 +1581,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of [double] elements, or `null` if [key] is missing or null.
   List<double>? removeDoubleListOrNull(final dynamic key) {
-    final List<double>? result = asDoubleListOrNull(key) == null
-        ? null
-        : List<double>.of(asDoubleList(key));
+    final List<double>? doubleList = asDoubleListOrNull(key);
+    if (doubleList == null) {
+      return null;
+    }
+    final List<double> resultList = List<double>.of(doubleList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1263,11 +1609,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of [double] elements, or `null` if [key] is missing or null.
   Set<double>? removeDoubleSetOrNull(final dynamic key) {
-    final Set<double>? result = asDoubleSetOrNull(key) == null
-        ? null
-        : Set<double>.of(asDoubleSet(key));
+    final Set<double>? doubleSet = asDoubleSetOrNull(key);
+    if (doubleSet == null) {
+      return null;
+    }
+    final Set<double> resultSet = Set<double>.of(doubleSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1281,11 +1629,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of values, or `null` if [key] is missing or null.
   List<dynamic>? removeDynamicListOrNull(final dynamic key) {
-    final List<dynamic>? result = asDynamicListOrNull(key) == null
-        ? null
-        : List<dynamic>.of(asDynamicList(key));
+    final List<dynamic>? dynamicList = asDynamicListOrNull(key);
+    if (dynamicList == null) {
+      return null;
+    }
+    final List<dynamic> resultList = List<dynamic>.of(dynamicList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1299,11 +1649,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of values, or `null` if [key] is missing or null.
   Set<dynamic>? removeDynamicSetOrNull(final dynamic key) {
-    final Set<dynamic>? result = asDynamicSetOrNull(key) == null
-        ? null
-        : Set<dynamic>.of(asDynamicSet(key));
+    final Set<dynamic>? dynamicSet = asDynamicSetOrNull(key);
+    if (dynamicSet == null) {
+      return null;
+    }
+    final Set<dynamic> resultSet = Set<dynamic>.of(dynamicSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1325,9 +1677,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of [int] elements, or `null` if [key] is missing or null.
   List<int>? removeIntListOrNull(final dynamic key) {
-    final List<int>? result = asIntListOrNull(key) == null ? null : List<int>.of(asIntList(key));
+    final List<int>? intList = asIntListOrNull(key);
+    if (intList == null) {
+      return null;
+    }
+    final List<int> resultList = List<int>.of(intList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1349,9 +1705,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of [int] elements, or `null` if [key] is missing or null.
   Set<int>? removeIntSetOrNull(final dynamic key) {
-    final Set<int>? result = asIntSetOrNull(key) == null ? null : Set<int>.of(asIntSet(key));
+    final Set<int>? intSet = asIntSetOrNull(key);
+    if (intSet == null) {
+      return null;
+    }
+    final Set<int> resultSet = Set<int>.of(intSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1365,11 +1725,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of [Json5] elements, or `null` if [key] is missing or null.
   List<Json5>? removeJsonListOrNull(final dynamic key) {
-    final List<Json5>? result = asJsonListOrNull(key) == null
-        ? null
-        : List<Json5>.of(asJsonList(key));
+    final List<Json5>? jsonList = asJsonListOrNull(key);
+    if (jsonList == null) {
+      return null;
+    }
+    final List<Json5> resultList = List<Json5>.of(jsonList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1391,9 +1753,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of [Json5] elements, or `null` if [key] is missing or null.
   Set<Json5>? removeJsonSetOrNull(final dynamic key) {
-    final Set<Json5>? result = asJsonSetOrNull(key) == null ? null : Set<Json5>.of(asJsonSet(key));
+    final Set<Json5>? jsonSet = asJsonSetOrNull(key);
+    if (jsonSet == null) {
+      return null;
+    }
+    final Set<Json5> resultSet = Set<Json5>.of(jsonSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1415,11 +1781,13 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the list entry for [key] and returns a detached list of [String] elements, or `null` if [key] is missing or null.
   List<String>? removeStringListOrNull(final dynamic key) {
-    final List<String>? result = asStringListOrNull(key) == null
-        ? null
-        : List<String>.of(asStringList(key));
+    final List<String>? stringList = asStringListOrNull(key);
+    if (stringList == null) {
+      return null;
+    }
+    final List<String> resultList = List<String>.of(stringList);
     remove(key);
-    return result;
+    return resultList;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1441,34 +1809,20 @@ class Json5 with TypedAccessorMixin {
   //------------------------------------------------------------------------------------------------
   /// Removes the set entry for [key] and returns a detached set of [String] elements, or `null` if [key] is missing or null.
   Set<String>? removeStringSetOrNull(final dynamic key) {
-    final Set<String>? result = asStringSetOrNull(key) == null
-        ? null
-        : Set<String>.of(asStringSet(key));
+    final Set<String>? stringSet = asStringSetOrNull(key);
+    if (stringSet == null) {
+      return null;
+    }
+    final Set<String> resultSet = Set<String>.of(stringSet);
     remove(key);
-    return result;
+    return resultSet;
   }
 
   //------------------------------------------------------------------------------------------------
   /// Sets the value for [key] to [value].
   void set(dynamic key, final dynamic value) {
-    assert(!readOnly, "Cannot add entries to a read-only JSON");
-    String localKey = _getKey(key);
-    _ephemeralKeys.remove(localKey);
-    switch (value) {
-      case null:
-        _keyToValueMap.remove(localKey);
-      case DateTime dateTimeValue:
-        _keyToValueMap[localKey] = dateTimeValue.format(dateTimeFormat);
-      case Map<dynamic, dynamic> mapValue:
-        _keyToValueMap[localKey] = Json5.fromMap(
-          mapValue,
-          caseSensitiveKeys: caseSensitiveKeys,
-          dateTimeFormat: dateTimeFormat,
-          sortedKeys: sortedKeys,
-        );
-      default:
-        _keyToValueMap[localKey] = value;
-    }
+    _checkMutable();
+    _setInternal(key, value);
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1481,25 +1835,34 @@ class Json5 with TypedAccessorMixin {
   /// Copies entries from [copyFromJson] into this object.
   /// Performs a deep copy of nested Json5 objects and Lists.
   void setFromJson(final Json5 copyFromJson) {
-    assert(!readOnly, "Cannot add entries to a read-only JSON");
-    _ephemeralKeys.addAll(copyFromJson._ephemeralKeys);
-    for (final MapEntry<String, dynamic> newEntry in copyFromJson._keyToValueMap.entries) {
-      _keyToValueMap[newEntry.key] = _copyValue(newEntry.value);
-    }
+    _checkMutable();
+    _setFromJsonInternal(copyFromJson);
   }
 
   //------------------------------------------------------------------------------------------------
-  /// Updates this Json5 object with the entries from [copyFromMap].
-  void setFromMap(final Map<dynamic, dynamic> copyFromMap) {
-    assert(!readOnly, "Cannot add entries to a read-only JSON");
-    for (final MapEntry<dynamic, dynamic> entry in copyFromMap.entries) {
-      set(entry.key, entry.value);
+  void _setFromJsonInternal(final Json5 copyFromJson, {Json5CommentRegistry? targetRegistry}) {
+    final Json5CommentRegistry? sourceRegistry = copyFromJson._commentRegistry;
+    for (final MapEntry<String, dynamic> newEntry in copyFromJson.entries) {
+      final String key = newEntry.key;
+      _ephemeralKeys?.remove(key);
+      _keyToValueMap[key] = _copyValue(
+        newEntry.value,
+        readOnly: readOnly,
+        sourceRegistry: sourceRegistry,
+        targetRegistry: targetRegistry,
+      );
     }
   }
 
   //------------------------------------------------------------------------------------------------
   /// Updates this Json5 object with the entries from [keyList] and [valueList].
   void setFromKeyAndValueLists(List<String>? keyList, List<dynamic>? valueList) {
+    _checkMutable();
+    _setFromKeyAndValueListsInternal(keyList, valueList);
+  }
+
+  //------------------------------------------------------------------------------------------------
+  void _setFromKeyAndValueListsInternal(List<String>? keyList, List<dynamic>? valueList) {
     if (keyList == null || valueList == null) {
       return;
     }
@@ -1507,29 +1870,51 @@ class Json5 with TypedAccessorMixin {
       throw Exception("keyList and valueList must be the same length");
     }
     for (int keyIndex = 0; keyIndex < keyList.length; ++keyIndex) {
-      set(keyList[keyIndex], valueList[keyIndex]);
+      _setInternal(keyList[keyIndex], valueList[keyIndex]);
     }
   }
 
   //------------------------------------------------------------------------------------------------
   /// Updates this Json5 object with the entries from [keyToIndexMap] and [valueList].
   void setFromKeyToIndexAndValueList(Map<String, int>? keyToIndexMap, List<dynamic>? valueList) {
+    _checkMutable();
+    _setFromKeyToIndexAndValueListInternal(keyToIndexMap, valueList);
+  }
+
+  //------------------------------------------------------------------------------------------------
+  void _setFromKeyToIndexAndValueListInternal(
+    Map<String, int>? keyToIndexMap,
+    List<dynamic>? valueList,
+  ) {
     if (keyToIndexMap == null || valueList == null) {
       return;
     }
     for (final MapEntry<String, int> keyToIndex in keyToIndexMap.entries) {
-      set(keyToIndex.key, valueList[keyToIndex.value]);
+      _setInternal(keyToIndex.key, valueList[keyToIndex.value]);
+    }
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Updates this Json5 object with the entries from [copyFromMap].
+  void setFromMap(final Map<dynamic, dynamic> copyFromMap) {
+    _checkMutable();
+    _setFromMapInternal(copyFromMap);
+  }
+
+  //------------------------------------------------------------------------------------------------
+  void _setFromMapInternal(final Map<dynamic, dynamic> copyFromMap) {
+    for (final MapEntry<dynamic, dynamic> entry in copyFromMap.entries) {
+      _setInternal(entry.key, entry.value);
     }
   }
 
   //------------------------------------------------------------------------------------------------
   /// Sets the value for [key] if the [newValue] has changed for the [oldJson] value.
   void setIfChanged(final dynamic key, final Json5 oldJson, final dynamic newValue) {
-    String localKey = _getKey(key);
-    if (newValue != oldJson._keyToValueMap[localKey]) {
+    final String localKey = _getKey(key);
+    if (!_deepEquals(newValue, oldJson.asType(localKey))) {
       set(localKey, newValue);
     }
-    return;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1540,8 +1925,16 @@ class Json5 with TypedAccessorMixin {
     if (newValue is String && newValue.isEmpty) return;
     if (newValue is Iterable<dynamic> && newValue.isEmpty) return;
     if (newValue is Map<dynamic, dynamic> && newValue.isEmpty) return;
-    if (newValue is Json5 && newValue._keyToValueMap.isEmpty) return;
+    if (newValue is Json5 && newValue.isEmpty) return;
     set(key, newValue);
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Sets the value for [key] only if [newValue] is not null.
+  void setIfNewValueIsNotNull(dynamic key, final dynamic newValue) {
+    if (newValue != null) {
+      set(key, newValue);
+    }
   }
 
   //------------------------------------------------------------------------------------------------
@@ -1552,46 +1945,46 @@ class Json5 with TypedAccessorMixin {
   /// values.
   /// For other types, equality is determined by the == operator.
   void setIfNotEqual(dynamic key, {required dynamic newValue, required dynamic oldValue}) {
-    bool isEqual(dynamic valueA, dynamic valueB) {
-      if (identical(valueA, valueB)) return true;
-      if (valueA is Json5 && valueB is Json5) {
-        if (valueA._keyToValueMap.length != valueB._keyToValueMap.length) return false;
-        for (final String mapKey in valueA._keyToValueMap.keys) {
-          if (!valueB._keyToValueMap.containsKey(mapKey)) return false;
-          if (!isEqual(valueA._keyToValueMap[mapKey], valueB._keyToValueMap[mapKey])) return false;
-        }
-        return true;
-      }
-      if (valueA is Map<dynamic, dynamic> && valueB is Map<dynamic, dynamic>) {
-        if (valueA.length != valueB.length) return false;
-        for (final Object? mapKey in valueA.keys) {
-          if (!valueB.containsKey(mapKey)) return false;
-          if (!isEqual(valueA[mapKey], valueB[mapKey])) return false;
-        }
-        return true;
-      }
-      if (valueA is Iterable<dynamic> && valueB is Iterable<dynamic>) {
-        if (valueA.length != valueB.length) return false;
-        final Iterator<dynamic> iteratorA = valueA.iterator;
-        final Iterator<dynamic> iteratorB = valueB.iterator;
-        while (iteratorA.moveNext() && iteratorB.moveNext()) {
-          if (!isEqual(iteratorA.current, iteratorB.current)) return false;
-        }
-        return true;
-      }
-      return valueA == valueB;
-    }
-
-    if (!isEqual(oldValue, newValue)) {
+    if (!_deepEquals(oldValue, newValue)) {
       set(key, newValue);
     }
   }
 
   //------------------------------------------------------------------------------------------------
-  /// Sets the value for [key] only if [newValue] is not null.
-  void setIfNewValueIsNotNull(dynamic key, final dynamic newValue) {
-    if (newValue != null) {
-      set(key, newValue);
+  void _setInternal(dynamic key, final dynamic value) {
+    final String localKey = _getKey(key);
+    _ephemeralKeys?.remove(localKey);
+    switch (value) {
+      case null:
+        _keyToValueMap.remove(localKey);
+      case DateTime dateTimeValue:
+        _keyToValueMap[localKey] = dateTimeValue.format(dateTimeFormat);
+      case Map<dynamic, dynamic> mapValue:
+        _keyToValueMap[localKey] = Json5.fromMap(
+          mapValue,
+          caseSensitiveKeys: caseSensitiveKeys,
+          dateTimeFormat: dateTimeFormat,
+          readOnly: readOnly,
+          sortedKeys: sortedKeys,
+        );
+      case Iterable<dynamic> iterableValue:
+        _keyToValueMap[localKey] = _convertIterable(iterableValue, freeze: readOnly);
+      default:
+        _keyToValueMap[localKey] = value;
+    }
+  }
+
+  //------------------------------------------------------------------------------------------------
+  /// Internal use.
+  @internal
+  void setParsedEntry(String key, dynamic value) {
+    _ephemeralKeys?.remove(key);
+    if (value == null) {
+      _keyToValueMap.remove(key);
+    } else if (value is DateTime) {
+      _keyToValueMap[key] = value.format(dateTimeFormat);
+    } else {
+      _keyToValueMap[key] = value;
     }
   }
 
@@ -1622,25 +2015,15 @@ class Json5 with TypedAccessorMixin {
   /// standard JSON); defaults to [defaultUseJson5ForToString].
   String toJsonString({bool? json5}) {
     final bool useJson5 = json5 ?? defaultUseJson5ForToString;
-    final StringBuffer buffer = StringBuffer("{");
-    bool firstEntry = true;
-    for (final String key in keys) {
-      final dynamic value = _keyToValueMap[key];
-      buffer
-        ..write(firstEntry ? "" : ",")
-        ..write(_formatKey(key, json5: useJson5))
-        ..write(":")
-        ..write(_valueToString(value, json5: useJson5));
-      firstEntry = false;
-    }
-    buffer.write("}");
+    final StringBuffer buffer = StringBuffer();
+    _writeJsonToBuffer(buffer, json5: useJson5);
     return buffer.toString();
   }
 
   //------------------------------------------------------------------------------------------------
   /// Converts this Json5 object to a standard [Map].
   Map<String, dynamic> toMap() {
-    if (_ephemeralKeys.isEmpty) return Map.of(_keyToValueMap);
+    if (_ephemeralKeys == null || _ephemeralKeys!.isEmpty) return Map.of(_keyToValueMap);
     final map = <String, dynamic>{};
     for (final String key in keys) {
       map[key] = _keyToValueMap[key];
@@ -1653,53 +2036,18 @@ class Json5 with TypedAccessorMixin {
   String toString() => toJsonString();
 
   //------------------------------------------------------------------------------------------------
-  String _valueToString(dynamic value, {required bool json5}) {
-    switch (value) {
-      case String stringValue:
-        return '"${escapeString(stringValue)}"';
-      case num numValue:
-        return numValue.toString();
-      case bool boolValue:
-        return boolValue ? "true" : "false";
-      case DateTime dateTimeValue:
-        return '"${dateTimeValue.format(dateTimeFormat)}"';
-      case Json5 jsonValue:
-        return jsonValue.toJsonString(json5: json5);
-      case Iterable<dynamic> iterableValue:
-        final StringBuffer buffer = StringBuffer("[");
-        bool first = true;
-        for (final dynamic item in iterableValue) {
-          buffer
-            ..write(first ? "" : ",")
-            ..write(_valueToString(item, json5: json5));
-          first = false;
-        }
-        buffer.write("]");
-        return buffer.toString();
-      case Enum enumValue:
-        return '"${_getKey(enumValue)}"';
-      case null:
-        return "null";
-      default:
-        return json5Util.isEnum(value)
-            ? '"${value.toString().split(".").last}"'
-            : '"${escapeString(value.toString())}"';
-    }
-  }
-
-  //------------------------------------------------------------------------------------------------
   void _writeComments({
     required StringBuffer buffer,
     required Object container,
     required bool includeComments,
-    required int index,
+    required Object keyOrIndex,
     required int level,
     required ECommentLocation location,
     Json5CommentRegistry? registry,
     bool skipPrecedingNewline = false,
   }) {
     if (!includeComments || registry == null) return;
-    final List<Json5Comment>? comments = registry.getComments(container, index, location);
+    final List<Json5Comment>? comments = registry.getComments(container, keyOrIndex, location);
     if (comments == null) return;
     final String indent = "  " * level;
     for (int i = 0; i < comments.length; ++i) {
@@ -1713,6 +2061,73 @@ class Json5 with TypedAccessorMixin {
         buffer.write(" ");
       }
       buffer.write(comment.comment);
+    }
+  }
+
+  //------------------------------------------------------------------------------------------------
+  void _writeJsonToBuffer(StringBuffer buffer, {required bool json5}) {
+    buffer.write("{");
+    bool firstEntry = true;
+    for (final String key in keys) {
+      if (!firstEntry) {
+        buffer.write(",");
+      }
+      _writeKey(buffer, key, json5: json5);
+      buffer.write(":");
+      _writeValueToBuffer(buffer, _keyToValueMap[key], json5: json5);
+      firstEntry = false;
+    }
+    buffer.write("}");
+  }
+
+  //------------------------------------------------------------------------------------------------
+  void _writeValueToBuffer(StringBuffer buffer, dynamic value, {required bool json5}) {
+    switch (value) {
+      case String stringValue:
+        buffer.write('"');
+        _writeEscapedString(buffer, stringValue);
+        buffer.write('"');
+      case num numValue:
+        _writeNum(buffer, numValue, json5: json5);
+      case bool boolValue:
+        buffer.write(boolValue ? "true" : "false");
+      case DateTime dateTimeValue:
+        buffer
+          ..write('"')
+          ..write(dateTimeValue.format(dateTimeFormat))
+          ..write('"');
+      case Json5 jsonValue:
+        jsonValue._writeJsonToBuffer(buffer, json5: json5);
+      case Iterable<dynamic> iterableValue:
+        buffer.write("[");
+        bool first = true;
+        for (final dynamic item in iterableValue) {
+          if (!first) {
+            buffer.write(",");
+          }
+          _writeValueToBuffer(buffer, item, json5: json5);
+          first = false;
+        }
+        buffer.write("]");
+      case Enum enumValue:
+        buffer
+          ..write('"')
+          ..write(enumValue.name)
+          ..write('"');
+      case null:
+        buffer.write("null");
+      default:
+        if (json5Util.isEnum(value)) {
+          final String valueString = value.toString();
+          buffer
+            ..write('"')
+            ..write(valueString.substring(valueString.lastIndexOf(".") + 1))
+            ..write('"');
+        } else {
+          buffer.write('"');
+          _writeEscapedString(buffer, value.toString());
+          buffer.write('"');
+        }
     }
   }
 

@@ -47,6 +47,9 @@ extension Json5DateTimeExtension on DateTime? {
 /// Extension methods for [String].
 extension Json5StringExtension on String? {
   //------------------------------------------------------------------------------------------------
+  static final RegExp _dateSeparatorRegExp = RegExp(r"[-/:\sT.]");
+
+  //------------------------------------------------------------------------------------------------
   /// Returns the result of comparing this tring to another string, ignoring case.
   int compareToIgnoreCase(String? other) {
     final int len = this?.length ?? 0;
@@ -97,7 +100,7 @@ extension Json5StringExtension on String? {
       return utc ? parsedDateTime.toUtc() : parsedDateTime.toLocal();
     }
     try {
-      String strippedDate = this!.replaceAll(RegExp(r"[-/:\sT.]"), "");
+      final String strippedDate = this!.replaceAll(_dateSeparatorRegExp, "");
       int length = strippedDate.length;
       int day;
       int hour = 0;

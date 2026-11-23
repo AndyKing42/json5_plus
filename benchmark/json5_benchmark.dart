@@ -33,7 +33,7 @@ void main(List<String> args) {
   const String jsonInput =
       r'{"id":"64c9f1","index":0,"guid":"86273461-1234-4321-9abc-1234567890ab","isActive":true,"balance":"$3,924.33","picture":"http://placehold.it/32x32","age":32,"eyeColor":"blue","name":"Andy","gender":"male","company":"TECH-CORP","email":"andy@techcorp.com","phone":"+1 (900) 555-2345","address":"123 Main St, Seattle, WA","tags":["dart","json","json","performance","speed"]}';
   const String json5Input =
-      r'{id:"64c9f1",index:0,guid:"86273461-1234-4321-9abc-1234567890ab",isActive:true,balance:"$3,924.33",picture:"http://placehold.it/32x32",age:32,eyeColor:"blue",name:"Andy",gender:"male",company:"TECH-CORP",email:"andy@techcorp.com",phone:"+1 (900) 555-2345",address:"123 Main St, Seattle, WA",tags":["dart","json","json","performance","speed"]}';
+      r'{id:"64c9f1",index:0,guid:"86273461-1234-4321-9abc-1234567890ab",isActive:true,balance:"$3,924.33",picture:"http://placehold.it/32x32",age:32,eyeColor:"blue",name:"Andy",gender:"male",company:"TECH-CORP",email:"andy@techcorp.com",phone:"+1 (900) 555-2345",address:"123 Main St, Seattle, WA",tags:["dart","json","json","performance","speed"]}';
 
   const int iterations = 1_000_000;
   const int fileIterations = 10_000;
